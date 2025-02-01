@@ -709,62 +709,35 @@ vector<vector<vector<bool>>> Sol::fea = {};
 vector<vector<vector<int>>> Sol::D = {};
 
 bool Reduction(vector<vector<bool>*> p) {
-    if (p.size() <= 1) {
-        return false;
-    }
     bool res = false;
-    for (int i = 0; i < p.size(); i++) {
-        Bitset v(*p[i]);
-        if (v.count() == 1) {
-            p.erase(p.begin() + i);
-            for (int w = 0; w < Sol::n; w++) {
-                if (v(w)) {
-                    for (auto it : p) {
-                        if ((*it)[w]) {
-                            (*it)[w] = false;
-                            res = true;
+    int n = Sol::n;
+    for (int x = 0; x < n; x++) {
+        for (int y = 0; y < n; y++) {
+            if ((*p[x])[y]) {
+                int s = 2 * n, t = s + 1;
+                MaxFlow::FlowGraph<Constants::i64> g(2 * n + 2, s, t);
+            
+                for (int i = 0; i < n; i++) {
+                    g.addedge(s, i, 1);
+                    g.addedge(i + n, t, 1);
+                    if (i == x) {
+                        continue;
+                    }
+                    for (int j = 0; j < n; j++) {
+                        if (j == y) {
+                            continue;
+                        }
+                        if ((*p[i])[j]) {
+                            g.addedge(i, j + n, 1);
                         }
                     }
                 }
-            }
-            return res || Reduction(p);
-        }
-    }
-
-    vector<map<Bitset, vector<int>>> f(p.size() + 1);
-    for (int i = 0; i < p.size(); i++) {
-        Bitset v(*p[i]);
-        for (int sz = min(i, (int)p.size() - 2); sz; sz--) {
-            for (auto& [b, _] : f[sz]) {
-                auto u = b | v;
-                if (u.count() == sz + 1) {
-                    vector<vector<bool>*> rp{p[i]};
-                    p.erase(p.begin() + i);
-                    reverse(_.begin(), _.end());
-                    for (auto x : _) {
-                        rp.push_back(p[x]);
-                        p.erase(p.begin() + x);
-                    }
-                    for (int w = 0; w < Sol::n; w++) {
-                        if (u(w)) {
-                            for (auto it : p) {
-                                if ((*it)[w]) {
-                                    (*it)[w] = false;
-                                    res = true;
-                                }
-                            }
-                        }
-                    }
-                    // cerr << "Part\n";
-                    return res || Reduction(p) || Reduction(rp);
-                }
-                if (!f[sz + 1].count(u)) {
-                    auto& r = f[sz + 1][u];
-                    r = _, r.push_back(i);
+                if (g.hlpp() != n - 1) {
+                    (*p[x])[y] = false;
+                    res = true;
                 }
             }
         }
-        f[1][v] = {i};
     }
     return res;
 }

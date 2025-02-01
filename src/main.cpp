@@ -288,8 +288,14 @@ struct Sol {
                         -fea[row][i][lsc[row][i]] - fea[row][j][lsc[row][j]] +
                         fea[row][i][lsc[row][j]] + fea[row][j][lsc[row][i]];
                     Conflict r = Conflict(-re, -rc);
-                    auto& R = (tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter) ? tb : ntb;
-                    auto& s = (tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter) ? stb : sntb;
+                    auto& R = (tabu[row][i][lsc[row][j]] > iter ||
+                               tabu[row][j][lsc[row][i]] > iter)
+                                  ? tb
+                                  : ntb;
+                    auto& s = (tabu[row][i][lsc[row][j]] > iter ||
+                               tabu[row][j][lsc[row][i]] > iter)
+                                  ? stb
+                                  : sntb;
                     if (r < best.r || (r == best.r && sbest.isSelect())) {
                         if (r < best.r) {
                             sbest.reset();
@@ -541,13 +547,16 @@ int main(int argc, char* argv[]) {
             if (tot == 1) {
                 fixed++;
                 Sol::fixed[i][j] = Sol::D[i][j].back();
-                Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(), Sol::flexiblePos[i].end(), j));
-                Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(), Sol::flexibleVal[i].end(), Sol::D[i][j].back()));
+                Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(),
+                                               Sol::flexiblePos[i].end(), j));
+                Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(),
+                                               Sol::flexibleVal[i].end(),
+                                               Sol::D[i][j].back()));
             }
         }
     }
     // cerr << "Reduction Success... " << fixed << " cell fixed\n";
-    
+
     // cerr << double(clock() - start_reduction) / CLOCKS_PER_SEC << '\n';
     // cerr << double(clock()) / CLOCKS_PER_SEC << '\n';
 
@@ -577,7 +586,7 @@ int main(int argc, char* argv[]) {
                     accu++;
                     if (accu == accu_ub) {
                         accu = 0;
-                        rt++;   
+                        rt++;
                     }
                 }
                 cerr << "Restart\n";
@@ -589,23 +598,26 @@ int main(int argc, char* argv[]) {
         for (; checkTime(); t++) {
             auto [tb, ntb, rd] = sol.getReduce(tabu, t);
 
-            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
+            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict)
+                            ? tb
+                            : ntb;
             if (maxR.r.edge > 0) {
-                maxR = rd;       
+                maxR = rd;
             }
 
             auto Set = [&](int i, int j, int c) {
                 int src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu[i][j][src] = t + sol.conflict.edge * 2 / 5 + base + rnd() % P;
+                tabu[i][j][src] =
+                    t + sol.conflict.edge * 2 / 5 + base + rnd() % P;
             };
 
             int di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];
 
             Set(maxR.row, maxR.i, di);
             Set(maxR.row, maxR.j, dj);
-            
+
             sol.conflict = sol.conflict + maxR.r;
 
             // auto temp = sol.conflict;
@@ -625,11 +637,13 @@ int main(int argc, char* argv[]) {
 
             if (!best.conflict) {
                 break;
-            } 
-            
+            }
+
             if (t > 15000000) {
-                cerr << maxR.row << ' ' << maxR.i << ' ' << maxR.j << ' ' <<maxR.r << '\n';
-                cerr << t << ' ' << best.conflict << ' ' << sol.conflict << '\n';
+                cerr << maxR.row << ' ' << maxR.i << ' ' << maxR.j << ' '
+                     << maxR.r << '\n';
+                cerr << t << ' ' << best.conflict << ' ' << sol.conflict
+                     << '\n';
             }
         }
         sol = best;
@@ -685,8 +699,7 @@ int main(int argc, char* argv[]) {
         csvFile << "[LogicError] ";
     }
     csvFile << argv[3] << ", "
-            << "SRLS, "
-            << seed << ", "
+            << "SRLS, " << seed << ", "
             << double(clock() - start) / CLOCKS_PER_SEC << ", "
             << ans.conflict.edge << "\n";
     cerr << double(clock() - start) / CLOCKS_PER_SEC << '\n';

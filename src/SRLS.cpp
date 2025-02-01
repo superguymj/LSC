@@ -167,13 +167,18 @@ struct Sol {
 
     }
 
-    tuple<Reduce, Reduce, Reduce> getReduce(TabuTab& tabu, int iter) {
-        Reduce tb, ntb, rd;
-        RandSelect stb, sntb, srd(1);
+    tuple<Reduce, Reduce> getReduce(TabuTab& tabu, int iter) {
+        Reduce tb, ntb, rd, nrd;
+        RandSelect stb, sntb, srd(1), snrd(1);
+
+        auto Tabu = [&](int row, int i, int j) -> bool {
+            return tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter;
+        };
+
         for (auto row : rows) {
             for (auto i : bi[row]) {
-                Reduce best;
-                RandSelect sbest;
+                Reduce best, nbest;
+                RandSelect sbest, snbest;
                 for (auto j : flexiblePos[row]) {
                     if (i == j) {
                         continue;
@@ -181,13 +186,16 @@ struct Sol {
                     int re = conflictC[i][lsc[row][i]] + conflictC[j][lsc[row][j]] - 2 - conflictC[i][lsc[row][j]] - conflictC[j][lsc[row][i]];
                     int rc = - fea[row][i][lsc[row][i]] - fea[row][j][lsc[row][j]] + fea[row][i][lsc[row][j]] + fea[row][j][lsc[row][i]];
                     Conflict r = Conflict(-re, -rc);
-                    auto& R = (tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter) ? tb : ntb;
-                    auto& s = (tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter) ? stb : sntb;
-                    if (r < best.r || (r == best.r && sbest.isSelect())) {
-                        if (r < best.r) {
-                            sbest.reset();
+                    auto& R = Tabu(row, i, j) ? tb : ntb;
+                    auto& s = Tabu(row, i, j) ? stb : sntb;
+
+                    auto& bR = Tabu(row, i, j) ? best : nbest;
+                    auto& bs = Tabu(row, i, j) ? sbest : snbest;
+                    if (r < bR.r || (r == bR.r && bs.isSelect())) {
+                        if (r < bR.r) {
+                            bs.reset();
                         }
-                        best = Reduce(r, row, i, j);
+                        bR = Reduce(r, row, i, j);
                     }
                     if (r < R.r || (r == R.r && s.isSelect())) {
                         if (r < R.r) {
@@ -196,12 +204,21 @@ struct Sol {
                         R = Reduce(r, row, i, j);
                     }
                 }
-                if (srd.isSelect()) {
+                if (best.r.edge < inf && srd.isSelect()) {
                     rd = best;
+                }
+                if (nbest.r.edge < inf && snrd.isSelect()) {
+                    nrd = nbest;
                 }
             }
         }
-        return tuple<Reduce, Reduce, Reduce>{tb, ntb, rd};
+        if (tb.r.edge > 0) {
+            tb = rd;
+        }
+        if (ntb.r.edge > 0) {
+            ntb = nrd;
+        }
+        return tuple<Reduce, Reduce>{tb, ntb};
     }
 
     friend Sol operator+(const Sol& father, const Sol& mother) {
@@ -525,20 +542,21 @@ int main(int argc, char* argv[]) {
                     accu++;
                     if (accu == accu_ub) {
                         accu = 0;
-                        rt++;
+                        rt++;   
                     }
                 }
+                // cerr << "Restart\n";
                 return true;
             }
             return false;
         };
 
         for (; checkTime(); t++) {
-            auto [tb, ntb, rd] = sol.getReduce(tabu, t);
+            auto [tb, ntb] = sol.getReduce(tabu, t);
 
             auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
-            if (maxR.r.edge > 0) {
-                maxR = rd;       
+            if (maxR.r.edge >= inf) {
+                continue;
             }
 
             auto Set = [&](int i, int j, int c) {
@@ -574,8 +592,10 @@ int main(int argc, char* argv[]) {
                 break;
             } 
             
-            if (t % 100000 == 0) {
-                cerr << best.conflict << '\n';
+            if (t % 10000 == 0) {
+                cerr << tb.row << ' ' << tb.i << ' ' << tb.j << ' ' << tb.r << '\n';
+                cerr << ntb.row << ' ' << ntb.i << ' ' << ntb.j << ' ' << ntb.r << '\n';
+                cerr << t << ' ' << best.conflict << ' ' << sol.conflict << '\n';
             }
         }
         sol = best;

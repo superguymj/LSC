@@ -99,7 +99,7 @@ struct FlowGraph {
             e[i + 1].f = 0;
         }
     }
-    void map(int mapN, const std::vector<int> &id) {
+    void map(int mapN, const std::vector<int>& id) {
         std::vector<std::vector<int>> tmp(mapN);
         for (int i = 0; i < N; i++) {
             if (tmp[id[i]].size() < eid[i].size()) {
@@ -110,7 +110,7 @@ struct FlowGraph {
             }
         }
         swap(eid, tmp);
-        for (auto &[to, f] : e) {
+        for (auto& [to, f] : e) {
             to = id[to];
         }
         S = id[S], T = id[T], N = mapN;
@@ -189,7 +189,7 @@ struct FlowGraph {
         return true;
     }
     void push(int v) {
-        for (int &eii = cur[v]; eii < (int)eid[v].size(); eii++) {
+        for (int& eii = cur[v]; eii < (int)eid[v].size(); eii++) {
             int ei = eid[v][eii];
             int u = e[ei].to;
             if (!eqls(e[ei].f, FlowType(0)) && h[u] == h[v] - 1) {
@@ -216,7 +216,8 @@ struct FlowGraph {
             for (int i = h[v] + 1; i < N; i++) {
                 pts[i].clear();
                 gap[i] = 0;
-                for (auto it = hp[i].begin(); it != hp[i].end(); it = hp[i].erase(it)) {
+                for (auto it = hp[i].begin(); it != hp[i].end();
+                     it = hp[i].erase(it)) {
                     h[*it] = inf;
                 }
             }
@@ -268,7 +269,7 @@ struct FlowGraph {
         }
         return flow[T];
     }
-    FlowType dynamic_hlpp(const std::function<void(int, int)> &update) {
+    FlowType dynamic_hlpp(const std::function<void(int, int)>& update) {
         if (!init()) {
             return 0;
         }
@@ -296,8 +297,8 @@ struct FlowGraph {
             return flow;
         }
         FlowType ref = flow;
-        for (int& eii = cur[v]; eii < (int)eid[v].size() && !eqls(ref, FlowType(0));
-             eii++) {
+        for (int& eii = cur[v];
+             eii < (int)eid[v].size() && !eqls(ref, FlowType(0)); eii++) {
             int ei = eid[v][eii], u = e[ei].to;
             if (h[u] == h[v] - 1 && !eqls(e[ei].f, FlowType(0))) {
                 FlowType fl = dinic_search(u, std::min(ref, (FlowType)e[ei].f));
@@ -607,7 +608,8 @@ struct Sol {
         RandSelect stb, sntb, srd(1), snrd(1);
 
         auto Tabu = [&](int row, int i, int j) -> bool {
-            return tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter;
+            return tabu[row][i][lsc[row][j]] > iter ||
+                   tabu[row][j][lsc[row][i]] > iter;
         };
 
         for (auto row : rows) {
@@ -716,7 +718,7 @@ bool Reduction(vector<vector<bool>*> p) {
             if ((*p[x])[y]) {
                 int s = 2 * n, t = s + 1;
                 MaxFlow::FlowGraph<Constants::i64> g(2 * n + 2, s, t);
-            
+
                 for (int i = 0; i < n; i++) {
                     g.addedge(s, i, 1);
                     g.addedge(i + n, t, 1);
@@ -813,7 +815,9 @@ int main(int argc, char* argv[]) {
         for (; t < T && checkTime(); t++) {
             auto [tb, ntb] = sol.getReduce(tabu, t);
 
-            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
+            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict)
+                            ? tb
+                            : ntb;
             if (maxR.r.edge >= inf) {
                 continue;
             }
@@ -822,14 +826,15 @@ int main(int argc, char* argv[]) {
                 int src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu[i][j][src] = t + sol.conflict.edge + sol.conflict.color + base + rnd() % P;
+                tabu[i][j][src] = t + sol.conflict.edge + sol.conflict.color +
+                                  base + rnd() % P;
             };
 
             int di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];
 
             Set(maxR.row, maxR.i, di);
             Set(maxR.row, maxR.j, dj);
-            
+
             sol.conflict = sol.conflict + maxR.r;
 
             // auto temp = sol.conflict;
@@ -842,8 +847,8 @@ int main(int argc, char* argv[]) {
 
             if (!best.conflict) {
                 break;
-            } 
-            
+            }
+
             // if (t % 100000 == 0) {
             //     cerr << tot << ' ' << best.conflict << '\n';
             // }
@@ -869,7 +874,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    
+
     if (ans.conflict.edge) {
         auto start_reduction = clock();
         bool loop = true;
@@ -938,13 +943,17 @@ int main(int argc, char* argv[]) {
                 if (tot == 1) {
                     fixed++;
                     Sol::fixed[i][j] = Sol::D[i][j].back();
-                    Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(), Sol::flexiblePos[i].end(), j));
-                    Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(), Sol::flexibleVal[i].end(), Sol::D[i][j].back()));
+                    Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(),
+                                                   Sol::flexiblePos[i].end(),
+                                                   j));
+                    Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(),
+                                                   Sol::flexibleVal[i].end(),
+                                                   Sol::D[i][j].back()));
                 }
             }
         }
         // cerr << "Reduction Success... " << fixed << " cell fixed\n";
-        
+
         // cerr << double(clock() - start_reduction) / CLOCKS_PER_SEC << '\n';
         // cerr << double(clock()) / CLOCKS_PER_SEC << '\n';
 
@@ -966,7 +975,7 @@ int main(int argc, char* argv[]) {
             }
         }
         sort(groups.begin(), groups.end());
-        
+
         vector<int> best;
         for (int i = 0; i < M; i++) {
             if (groups[i] == groups[0]) {
@@ -975,15 +984,15 @@ int main(int argc, char* argv[]) {
         }
 
         vector<Sol> elites;
-        
-        for (; checkTime() && ans.conflict.edge; ) {
+
+        for (; checkTime() && ans.conflict.edge;) {
             int x = best[rnd() % best.size()];
             int y = rnd() % groups.size();
             while (x == y) {
                 x = best[rnd() % best.size()];
                 y = rnd() % groups.size();
             }
-            
+
             Sol p = groups[x] + groups[y];
             Tabu(p, genT);
 
@@ -1039,7 +1048,7 @@ int main(int argc, char* argv[]) {
                     elites.clear();
                 } else {
                     auto minG = min_element(groups.begin(), groups.end());
-                    
+
                     best.clear();
                     for (int i = 0; i < M; i++) {
                         if (groups[i] == *minG) {
@@ -1047,7 +1056,6 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
-
             }
             if (!ans.conflict) {
                 break;
@@ -1103,8 +1111,7 @@ int main(int argc, char* argv[]) {
         csvFile << "[LogicError] ";
     }
     csvFile << argv[3] << ", "
-            << "HEA-ELITE, "
-            << seed << ", "
+            << "HEA-ELITE, " << seed << ", "
             << double(clock() - start) / CLOCKS_PER_SEC << ", "
             << ans.conflict.edge << "\n";
     cerr << double(clock() - start) / CLOCKS_PER_SEC << '\n';

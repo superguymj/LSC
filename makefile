@@ -24,5 +24,8 @@ $(TARGET): $(SRC)
 clean:
 	rm -f $(TARGET)
 
+debug: $(SRC)
+	$(CXX) -o lsc $^ -g -Wall -Wextra
+
 # PHONY 目标，防止和文件名冲突
 .PHONY: all clean

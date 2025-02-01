@@ -181,8 +181,8 @@ struct Sol {
                     int re = conflictC[i][lsc[row][i]] + conflictC[j][lsc[row][j]] - 2 - conflictC[i][lsc[row][j]] - conflictC[j][lsc[row][i]];
                     int rc = - fea[row][i][lsc[row][i]] - fea[row][j][lsc[row][j]] + fea[row][i][lsc[row][j]] + fea[row][j][lsc[row][i]];
                     Conflict r = Conflict(-re, -rc);
-                    auto& R = (tabu[row][i][lsc[row][j]] > iter && tabu[row][j][lsc[row][i]] > iter) ? tb : ntb;
-                    auto& s = (tabu[row][i][lsc[row][j]] > iter && tabu[row][j][lsc[row][i]] > iter) ? stb : sntb;
+                    auto& R = (tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter) ? tb : ntb;
+                    auto& s = (tabu[row][i][lsc[row][j]] > iter || tabu[row][j][lsc[row][i]] > iter) ? stb : sntb;
                     if (r < best.r || (r == best.r && sbest.isSelect())) {
                         if (r < best.r) {
                             sbest.reset();
@@ -422,20 +422,119 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    constexpr int preT = 100000;
-    constexpr int genT = 100000;
+    auto start_reduction = clock();
+    bool loop = true;
+    vector<bool> R(n, true), C(n, true);
+    while (loop) {
+        loop = false;
+        for (int i = 0; i < n; i++) {
+            if (!R[i]) {
+                continue;
+            }
+            R[i] = false;
+            vector<vector<bool>> temp = Sol::fea[i];
+            vector<vector<bool>*> p;
+            for (int j = 0; j < n; j++) {
+                p.push_back(&Sol::fea[i][j]);
+            }
+            auto now = Reduction(p);
+            loop |= now;
+            if (now) {
+                for (int j = 0; j < n; j++) {
+                    if (temp[j] != Sol::fea[i][j]) {
+                        C[j] = true;
+                    }
+                }
+            }
+        }
+        for (int j = 0; j < n; j++) {
+            if (!C[j]) {
+                continue;
+            }
+            C[j] = false;
+            vector<vector<bool>> temp(n);
+            for (int i = 0; i < n; i++) {
+                temp[i] = Sol::fea[i][j];
+            }
+            vector<vector<bool>*> p;
+            for (int i = 0; i < n; i++) {
+                p.push_back(&Sol::fea[i][j]);
+            }
+            auto now = Reduction(p);
+            loop |= now;
+            if (now) {
+                for (int i = 0; i < n; i++) {
+                    if (temp[i] != Sol::fea[i][j]) {
+                        R[i] = true;
+                    }
+                }
+            }
+        }
+    }
 
-    auto Tabu = [&](auto& sol, int T) {
+    int fixed = 0;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (Sol::fixed[i][j] != -1) {
+                Sol::D[i][j] = {Sol::fixed[i][j]};
+                continue;
+            }
+            int tot = 0;
+            for (int w = 0; w < n; w++) {
+                if (Sol::fea[i][j][w]) {
+                    Sol::D[i][j].push_back(w);
+                    tot++;
+                }
+            }
+            if (tot == 1) {
+                fixed++;
+                Sol::fixed[i][j] = Sol::D[i][j].back();
+                Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(), Sol::flexiblePos[i].end(), j));
+                Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(), Sol::flexibleVal[i].end(), Sol::D[i][j].back()));
+            }
+        }
+    }
+    // cerr << "Reduction Success... " << fixed << " cell fixed\n";
+    
+    // cerr << double(clock() - start_reduction) / CLOCKS_PER_SEC << '\n';
+    // cerr << double(clock()) / CLOCKS_PER_SEC << '\n';
+
+    // for (int i = 0; i < n; i++) {
+    //     for (int j = 0; j < n; j++) {
+    //         cerr << Sol::D[i][j].size() << " \n"[j == n - 1];
+    //     }
+    // }
+
+    auto Tabu = [&](auto& sol) {
         sol.init();
         // cerr << "Tabu start " << sol.conflict << '\n';
         auto best = sol;
-        const int P = rnd() % 4 + 1;
-        const int base = rnd() % 3;
+        const int P = 10;
+        const int base = 1;
+
+        constexpr int rt0 = 10;
+        constexpr int rt_ub = 15;
+        constexpr int accu_ub = 1000;
 
         TabuTab tabu(n, vector<vector<int>>(n, vector<int>(n)));
+        int t = 0, accu = 0, rt = rt0;
 
-        int t = 0;
-        for (; t < T && checkTime(); t++) {
+        auto AdaptiveRestart = [&]() -> bool {
+            if (sol.conflict.edge - best.conflict.edge > rt) {
+                if (rt < rt_ub) {
+                    accu++;
+                    if (accu == accu_ub) {
+                        accu = 0;
+                        rt++;   
+                    }
+                }
+                cerr << "Restart\n";
+                return true;
+            }
+            return false;
+        };
+
+        for (; checkTime(); t++) {
             auto [tb, ntb, rd] = sol.getReduce(tabu, t);
 
             auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
@@ -447,7 +546,7 @@ int main(int argc, char* argv[]) {
                 int src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu[i][j][src] = t + sol.conflict.edge + sol.conflict.color + base + rnd() % P;
+                tabu[i][j][src] = t + sol.conflict.edge * 2 / 5 + base + rnd() % P;
             };
 
             int di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];
@@ -461,226 +560,32 @@ int main(int argc, char* argv[]) {
             // sol.init();
             // assert(temp == sol.conflict);
 
-            if (sol < best) {
+            if (sol < best || sol == best) {
                 best = sol;
+            } else {
+                if (AdaptiveRestart()) {
+                    t = 0;
+                    tabu.assign(n, vector<vector<int>>(n, vector<int>(n)));
+                    sol = best;
+                    sol.init();
+                }
             }
 
             if (!best.conflict) {
                 break;
             } 
             
-            // if (t % 100000 == 0) {
-            //     cerr << tot << ' ' << best.conflict << '\n';
-            // }
+            if (t > 15000000) {
+                cerr << maxR.row << ' ' << maxR.i << ' ' << maxR.j << ' ' <<maxR.r << '\n';
+                cerr << t << ' ' << best.conflict << ' ' << sol.conflict << '\n';
+            }
         }
         sol = best;
         // cerr << "Tabu end " << sol.conflict << '\n';
     };
 
     Sol ans;
-    Tabu(ans, preT);
-
-    constexpr int M = 8;
-    const int K = M / 4;
-    vector<Sol> groups(M);
-    if (ans.conflict.edge) {
-        for (auto& sol : groups) {
-            Tabu(sol, preT);
-            if (sol < ans) {
-                ans = sol;
-            }
-            if (!ans.conflict) {
-                break;
-            }
-        }
-    }
-    
-    if (ans.conflict.edge) {
-        auto start_reduction = clock();
-        bool loop = true;
-        vector<bool> R(n, true), C(n, true);
-        while (loop) {
-            loop = false;
-            for (int i = 0; i < n; i++) {
-                if (!R[i]) {
-                    continue;
-                }
-                R[i] = false;
-                vector<vector<bool>> temp = Sol::fea[i];
-                vector<vector<bool>*> p;
-                for (int j = 0; j < n; j++) {
-                    p.push_back(&Sol::fea[i][j]);
-                }
-                auto now = Reduction(p);
-                loop |= now;
-                if (now) {
-                    for (int j = 0; j < n; j++) {
-                        if (temp[j] != Sol::fea[i][j]) {
-                            C[j] = true;
-                        }
-                    }
-                }
-            }
-            for (int j = 0; j < n; j++) {
-                if (!C[j]) {
-                    continue;
-                }
-                C[j] = false;
-                vector<vector<bool>> temp(n);
-                for (int i = 0; i < n; i++) {
-                    temp[i] = Sol::fea[i][j];
-                }
-                vector<vector<bool>*> p;
-                for (int i = 0; i < n; i++) {
-                    p.push_back(&Sol::fea[i][j]);
-                }
-                auto now = Reduction(p);
-                loop |= now;
-                if (now) {
-                    for (int i = 0; i < n; i++) {
-                        if (temp[i] != Sol::fea[i][j]) {
-                            R[i] = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        int fixed = 0;
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                if (Sol::fixed[i][j] != -1) {
-                    Sol::D[i][j] = {Sol::fixed[i][j]};
-                    continue;
-                }
-                int tot = 0;
-                for (int w = 0; w < n; w++) {
-                    if (Sol::fea[i][j][w]) {
-                        Sol::D[i][j].push_back(w);
-                        tot++;
-                    }
-                }
-                if (tot == 1) {
-                    fixed++;
-                    Sol::fixed[i][j] = Sol::D[i][j].back();
-                    Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(), Sol::flexiblePos[i].end(), j));
-                    Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(), Sol::flexibleVal[i].end(), Sol::D[i][j].back()));
-                }
-            }
-        }
-        // cerr << "Reduction Success... " << fixed << " cell fixed\n";
-        
-        // cerr << double(clock() - start_reduction) / CLOCKS_PER_SEC << '\n';
-        // cerr << double(clock()) / CLOCKS_PER_SEC << '\n';
-
-        // for (int i = 0; i < n; i++) {
-        //     for (int j = 0; j < n; j++) {
-        //         cerr << Sol::D[i][j].size() << " \n"[j == n - 1];
-        //     }
-        // }
-
-        ans.init();
-        for (auto& sol : groups) {
-            sol = Sol();
-            Tabu(sol, preT);
-            if (sol < ans) {
-                ans = sol;
-            }
-            if (!ans.conflict) {
-                break;
-            }
-        }
-        sort(groups.begin(), groups.end());
-        
-        vector<int> best;
-        for (int i = 0; i < M; i++) {
-            if (groups[i] == groups[0]) {
-                best.push_back(i);
-            }
-        }
-
-        vector<Sol> elites;
-        
-        for (; checkTime() && ans.conflict.edge; ) {
-            int x = best[rnd() % best.size()];
-            int y = rnd() % groups.size();
-            while (x == y) {
-                x = best[rnd() % best.size()];
-                y = rnd() % groups.size();
-            }
-            
-            Sol p = groups[x] + groups[y];
-            Tabu(p, genT);
-
-            if (p < ans) {
-                ans = p;
-            }
-            if (!ans.conflict) {
-                break;
-            }
-
-            auto maxG = min_element(groups.begin(), groups.end());
-            if (p < *maxG) {
-                *maxG = p;
-            } else {
-                groups.push_back(p);
-            }
-            if (groups.size() == 2 * M) {
-                sort(groups.begin(), groups.end());
-                groups.resize(M);
-
-                if (groups[0] == groups.back()) {
-                    elites.push_back(groups[rnd() % M]);
-                    for (auto& g : groups) {
-                        for (int x = 0; x < n; x++) {
-                            if (rnd() % 2) {
-                                g.Shuffle(x);
-                            }
-                        }
-                        Tabu(g, genT);
-                    }
-                } else {
-                    gp_hash_table<int, null_type> vis;
-                    for (int k = 0; k < K; k++) {
-                        int i = rnd() % M;
-                        while (vis.find(i) != vis.end()) {
-                            i = rnd() % M;
-                        }
-                        vis.insert(i);
-
-                        for (int x = 0; x < n; x++) {
-                            if (rnd() % 2) {
-                                groups[i].Shuffle(x);
-                            }
-                        }
-                        Tabu(groups[i], genT);
-                    }
-                }
-
-                if (elites.size() == M) {
-                    groups = elites;
-                    best.resize(M);
-                    iota(best.begin(), best.end(), 0);
-                    elites.clear();
-                } else {
-                    auto minG = min_element(groups.begin(), groups.end());
-                    
-                    best.clear();
-                    for (int i = 0; i < M; i++) {
-                        if (groups[i] == *minG) {
-                            best.push_back(i);
-                        }
-                    }
-                }
-
-            }
-            if (!ans.conflict) {
-                break;
-            }
-
-            // cerr << elites.size() << ' ' << ans.conflict << '\n';
-        }
-    }
+    Tabu(ans);
 
     for (auto& row : ans.lsc) {
         for (int j = 0; j < n; j++) {
@@ -729,7 +634,7 @@ int main(int argc, char* argv[]) {
         csvFile << "[LogicError] ";
     }
     csvFile << argv[3] << ", "
-            << "HEA-ELITE, "
+            << "SRLS, "
             << seed << ", "
             << double(clock() - start) / CLOCKS_PER_SEC << ", "
             << ans.conflict.edge << "\n";

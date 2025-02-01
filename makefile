@@ -2,7 +2,7 @@
 CXX = g++
 
 # 编译选项
-CXXFLAGS = -std=c++23 -O3
+CXXFLAGS = -std=c++23 -O3 -funroll-loops -ftree-vectorize
 
 # 源文件目录
 SRC_DIR = src

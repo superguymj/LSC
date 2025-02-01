@@ -1,7 +1,7 @@
 #include <bits/stdc++.h>
 #include <ext/pb_ds/assoc_container.hpp>
-#define rep(i,x,y) for (int i = x; i <= y; i++) 
-#define repd(i,x,y) for (int i = x; i >= y; i--)
+#define rep(i, x, y) for (int i = x; i <= y; i++)
+#define repd(i, x, y) for (int i = x; i >= y; i--)
 
 #define MESSAGE
 
@@ -22,13 +22,119 @@ struct RandSelect {
     RandSelect() {}
     RandSelect(int c) : count(c) {}
 
-    void reset() {
-        count = 2;
+    void reset() { count = 2; }
+    bool isSelect() { return rnd() % (count++) == 0; }
+};
+
+struct Bitset {
+    vector<u32> b;
+    Bitset(int n = 0) : b(((n - 1) >> 5) + 1) {}
+    Bitset(vector<bool> p) : b(((p.size() - 1) >> 5) + 1) {
+        for (int i = 0; i < p.size(); i++) {
+            if (p[i]) {
+                set(i);
+            }
+        }
     }
-    bool isSelect() {
-        return rnd() % (count++) == 0;
+
+    void expand(int x) {
+        if ((int)b.size() <= (x >> 5)) {
+            b.resize((x >> 5) + 1);
+        }
+    }
+    void insert(int x) {
+        expand(x);
+        set(x);
+    }
+    void erase(int x) {
+        expand(x);
+        reset(x);
+    }
+    bool empty() const {
+        for (auto v : b) {
+            if (v != 0u) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void set(int x) { b[x >> 5] |= 1 << (x & 31); }
+    void reset(int x) { b[x >> 5] &= ~(1 << (x & 31)); }
+    void clear() { b.assign(b.size(), 0); }
+
+    friend Bitset operator|(Bitset lhs, const Bitset& rhs) {
+        for (int i = 0; i < lhs.b.size(); i++) {
+            lhs.b[i] |= rhs.b[i];
+        }
+        return lhs;
+    }
+    void operator|=(const Bitset& rhs) {
+        for (int i = 0; i < b.size(); i++) {
+            b[i] |= rhs.b[i];
+        }
+    }
+
+    int count() {
+        int res = 0;
+        for (int i = 0; i < b.size(); i++) {
+            res += __builtin_popcount(b[i]);
+        }
+        return res;
+    }
+
+    bool operator<(const Bitset& t) const { return b < t.b; }
+
+    bool operator()(int i) const { return b[i >> 5] >> (i & 31) & 1; }
+
+    int find_first() const {
+        for (int i = 0; i < (int)b.size(); i++) {
+            if (b[i] != 0u) {
+                return __builtin_ctz(b[i]) + (i << 5);
+            }
+        }
+        return -1;
+    }
+    int find_next(int i) const {
+        int x = i >> 5, y = i & 31;
+        if (i >= 0 && x < (int)b.size()) {
+            unsigned v = (b[x] >> y) & (~1u);
+            if (v) {
+                return __builtin_ctz(v) + i;
+            }
+            for (int i = x + 1; i < (int)b.size(); i++) {
+                if (b[i] != 0u) {
+                    return __builtin_ctz(b[i]) + (i << 5);
+                }
+            }
+        }
+        return -1;
+    }
+
+    struct iterator {
+        const Bitset* const bs;
+        int pos;
+        iterator(const Bitset* bs, int pos) : bs(bs), pos(pos) {}
+        bool operator!=(const iterator& it) const {
+            return pair{bs, pos} != pair{it.bs, it.pos};
+        }
+        int operator*() const { return pos; }
+        iterator& operator++() {
+            pos = bs->find_next(pos);
+            return *this;
+        }
+    };
+    iterator begin() const { return iterator(this, find_first()); }
+    iterator end() const { return iterator(this, -1); }
+    iterator find(int i) const {
+        if (this->operator()(i)) {
+            return iterator(this, i);
+        }
+        return end();
     }
 };
+
+using Set = Bitset;
 
 constexpr int inf = 1E9;
 constexpr double eps = 0.1;
@@ -56,9 +162,7 @@ struct Conflict {
         os << "(" << t.edge << ", " << t.color << ")";
         return os;
     }
-    bool operator!() const {
-        return !edge && !color;
-    }
+    bool operator!() const { return !edge && !color; }
 };
 
 const Conflict success = Conflict(0, 0);
@@ -66,7 +170,8 @@ const Conflict success = Conflict(0, 0);
 struct Reduce {
     Conflict r;
     int row, i, j;
-    Reduce(Conflict r = Conflict(), int row = 0, int i = 0, int j = 0) : r(r), row(row), i(i), j(j) {}
+    Reduce(Conflict r = Conflict(), int row = 0, int i = 0, int j = 0)
+        : r(r), row(row), i(i), j(j) {}
 };
 
 struct Sol {
@@ -75,16 +180,15 @@ struct Sol {
     static int n;
     static vector<vector<int>> fixed, flexiblePos, flexibleVal;
 
-
     vector<vector<int>> lsc;
 
     Conflict conflict;
     vector<vector<int>> conflictC, conflictR;
 
-    vector<gp_hash_table<int, null_type>> bi;
-    gp_hash_table<int, null_type> rows;
+    vector<Set> bi;
+    Set rows;
 
-    #define id(i, j) ((i) * n + (j))
+#define id(i, j) ((i) * n + (j))
 
     Sol() : lsc(fixed) {
         for (int i = 0; i < n; i++) {
@@ -92,8 +196,7 @@ struct Sol {
         }
     }
 
-    Sol(vector<vector<int>> lsc) : lsc(lsc) {
-    }
+    Sol(vector<vector<int>> lsc) : lsc(lsc) {}
 
     void init() {
         conflict = Conflict(0, 0);
@@ -123,7 +226,7 @@ struct Sol {
         }
 
         for (int i = 0; i < n; i++) {
-            if (bi[i].size()) {
+            if (!bi[i].empty()) {
                 rows.insert(i);
             }
         }
@@ -138,14 +241,14 @@ struct Sol {
             int row = conflictR[j][src];
             if (fixed[row][j] == -1 && fea[row][j][lsc[row][j]]) {
                 bi[row].erase(j);
-                if (!bi[row].size()) {
+                if (bi[row].empty()) {
                     rows.erase(row);
                 }
             }
         }
-        
+
         lsc[i][j] = c;
-        
+
         if (conflictC[j][c] == 1) {
             if (fixed[conflictR[j][c]][j] == -1) {
                 bi[conflictR[j][c]].insert(j);
@@ -160,11 +263,10 @@ struct Sol {
             rows.insert(i);
         } else {
             bi[i].erase(j);
-            if (!bi[i].size()) {
+            if (bi[i].empty()) {
                 rows.erase(i);
             }
         }
-
     }
 
     tuple<Reduce, Reduce, Reduce> getReduce(TabuTab& tabu, int iter) {
@@ -178,11 +280,22 @@ struct Sol {
                     if (i == j) {
                         continue;
                     }
-                    int re = conflictC[i][lsc[row][i]] + conflictC[j][lsc[row][j]] - 2 - conflictC[i][lsc[row][j]] - conflictC[j][lsc[row][i]];
-                    int rc = - fea[row][i][lsc[row][i]] - fea[row][j][lsc[row][j]] + fea[row][i][lsc[row][j]] + fea[row][j][lsc[row][i]];
+                    int re = conflictC[i][lsc[row][i]] +
+                             conflictC[j][lsc[row][j]] - 2 -
+                             conflictC[i][lsc[row][j]] -
+                             conflictC[j][lsc[row][i]];
+                    int rc =
+                        -fea[row][i][lsc[row][i]] - fea[row][j][lsc[row][j]] +
+                        fea[row][i][lsc[row][j]] + fea[row][j][lsc[row][i]];
                     Conflict r = Conflict(-re, -rc);
-                    auto& R = (tabu[row][i][lsc[row][j]] > iter && tabu[row][j][lsc[row][i]] > iter) ? tb : ntb;
-                    auto& s = (tabu[row][i][lsc[row][j]] > iter && tabu[row][j][lsc[row][i]] > iter) ? stb : sntb;
+                    auto& R = (tabu[row][i][lsc[row][j]] > iter &&
+                               tabu[row][j][lsc[row][i]] > iter)
+                                  ? tb
+                                  : ntb;
+                    auto& s = (tabu[row][i][lsc[row][j]] > iter &&
+                               tabu[row][j][lsc[row][i]] > iter)
+                                  ? stb
+                                  : sntb;
                     if (r < best.r || (r == best.r && sbest.isSelect())) {
                         if (r < best.r) {
                             sbest.reset();
@@ -240,12 +353,8 @@ struct Sol {
         return *this;
     }
 
-    bool operator<(const Sol& t) const {
-        return conflict < t.conflict;
-    }
-    bool operator==(const Sol& t) const {
-        return conflict == t.conflict;
-    }
+    bool operator<(const Sol& t) const { return conflict < t.conflict; }
+    bool operator==(const Sol& t) const { return conflict == t.conflict; }
 };
 
 int Sol::n = 0;
@@ -254,56 +363,6 @@ vector<vector<int>> Sol::flexiblePos = {};
 vector<vector<int>> Sol::flexibleVal = {};
 vector<vector<vector<bool>>> Sol::fea = {};
 vector<vector<vector<int>>> Sol::D = {};
-
-struct Bitset {
-    vector<u32> b;
-    Bitset(int n) : b(((n - 1) >> 5) + 1) {}
-    Bitset(vector<bool> p) : b(((p.size() - 1) >> 5) + 1) {
-        for (int i = 0; i < p.size(); i++) {
-            if (p[i]) {
-                set(i);
-            }
-        }
-    }
-
-    void set(int x) {
-        b[x >> 5] |= 1 << (x & 31);
-    }
-    void reset(int x) {
-        b[x >> 5] &= ~(1 << (x & 31));
-    }
-    void clear() {
-        b.assign(b.size(), 0);
-    }
-
-    friend Bitset operator|(Bitset lhs, const Bitset& rhs) {
-        for (int i = 0; i < lhs.b.size(); i++) {
-            lhs.b[i] |= rhs.b[i];
-        }
-        return lhs;
-    }
-    void operator|=(const Bitset& rhs) {
-        for (int i = 0; i < b.size(); i++) {
-            b[i] |= rhs.b[i];
-        }
-    }
-
-    int count() {
-        int res = 0;
-        for (int i = 0; i < b.size(); i++) {
-            res += __builtin_popcount(b[i]);
-        }
-        return res;
-    }
-
-    bool operator<(const Bitset& t) const {
-        return b < t.b;
-    }
-
-    bool operator()(int i) {
-        return b[i >> 5] >> (i & 31) & 1;
-    }
-};
 
 bool Reduction(vector<vector<bool>*> p) {
     if (p.size() <= 1) {
@@ -327,7 +386,7 @@ bool Reduction(vector<vector<bool>*> p) {
             return res | Reduction(p);
         }
     }
-    
+
     vector<map<Bitset, vector<int>>> f(p.size() + 1);
     for (int i = 0; i < p.size(); i++) {
         Bitset v(*p[i]);
@@ -353,7 +412,7 @@ bool Reduction(vector<vector<bool>*> p) {
                         }
                     }
                     // cerr << "Part\n";
-                    return res | Reduction(p) | Reduction(rp);
+                    return res || Reduction(p) || Reduction(rp);
                 }
                 if (!f[sz + 1].count(u)) {
                     auto& r = f[sz + 1][u];
@@ -365,7 +424,6 @@ bool Reduction(vector<vector<bool>*> p) {
     }
     return res;
 }
-
 
 int main(int argc, char* argv[]) {
     ios::sync_with_stdio(false);
@@ -438,23 +496,26 @@ int main(int argc, char* argv[]) {
         for (; t < T && checkTime(); t++) {
             auto [tb, ntb, rd] = sol.getReduce(tabu, t);
 
-            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
+            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict)
+                            ? tb
+                            : ntb;
             if (maxR.r.edge > 0) {
-                maxR = rd;       
+                maxR = rd;
             }
 
             auto Set = [&](int i, int j, int c) {
                 int src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu[i][j][src] = t + sol.conflict.edge + sol.conflict.color + base + rnd() % P;
+                tabu[i][j][src] = t + sol.conflict.edge + sol.conflict.color +
+                                  base + rnd() % P;
             };
 
             int di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];
 
             Set(maxR.row, maxR.i, di);
             Set(maxR.row, maxR.j, dj);
-            
+
             sol.conflict = sol.conflict + maxR.r;
 
             // auto temp = sol.conflict;
@@ -467,8 +528,8 @@ int main(int argc, char* argv[]) {
 
             if (!best.conflict) {
                 break;
-            } 
-            
+            }
+
             // if (t % 100000 == 0) {
             //     cerr << tot << ' ' << best.conflict << '\n';
             // }
@@ -494,7 +555,7 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    
+
     if (ans.conflict.edge) {
         auto start_reduction = clock();
         bool loop = true;
@@ -563,13 +624,17 @@ int main(int argc, char* argv[]) {
                 if (tot == 1) {
                     fixed++;
                     Sol::fixed[i][j] = Sol::D[i][j].back();
-                    Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(), Sol::flexiblePos[i].end(), j));
-                    Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(), Sol::flexibleVal[i].end(), Sol::D[i][j].back()));
+                    Sol::flexiblePos[i].erase(find(Sol::flexiblePos[i].begin(),
+                                                   Sol::flexiblePos[i].end(),
+                                                   j));
+                    Sol::flexibleVal[i].erase(find(Sol::flexibleVal[i].begin(),
+                                                   Sol::flexibleVal[i].end(),
+                                                   Sol::D[i][j].back()));
                 }
             }
         }
         // cerr << "Reduction Success... " << fixed << " cell fixed\n";
-        
+
         // cerr << double(clock() - start_reduction) / CLOCKS_PER_SEC << '\n';
         // cerr << double(clock()) / CLOCKS_PER_SEC << '\n';
 
@@ -591,7 +656,7 @@ int main(int argc, char* argv[]) {
             }
         }
         sort(groups.begin(), groups.end());
-        
+
         vector<int> best;
         for (int i = 0; i < M; i++) {
             if (groups[i] == groups[0]) {
@@ -600,15 +665,15 @@ int main(int argc, char* argv[]) {
         }
 
         vector<Sol> elites;
-        
-        for (; checkTime() && ans.conflict.edge; ) {
+
+        for (; checkTime() && ans.conflict.edge;) {
             int x = best[rnd() % best.size()];
             int y = rnd() % groups.size();
             while (x == y) {
                 x = best[rnd() % best.size()];
                 y = rnd() % groups.size();
             }
-            
+
             Sol p = groups[x] + groups[y];
             Tabu(p, genT);
 
@@ -640,7 +705,7 @@ int main(int argc, char* argv[]) {
                         Tabu(g, genT);
                     }
                 } else {
-                    gp_hash_table<int, null_type> vis;
+                    Set vis;
                     for (int k = 0; k < K; k++) {
                         int i = rnd() % M;
                         while (vis.find(i) != vis.end()) {
@@ -664,7 +729,7 @@ int main(int argc, char* argv[]) {
                     elites.clear();
                 } else {
                     auto minG = min_element(groups.begin(), groups.end());
-                    
+
                     best.clear();
                     for (int i = 0; i < M; i++) {
                         if (groups[i] == *minG) {
@@ -672,7 +737,6 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
-
             }
             if (!ans.conflict) {
                 break;
@@ -718,19 +782,17 @@ int main(int argc, char* argv[]) {
         return true;
     };
 
-
 #if defined(MESSAGE)
     ans.init();
     // cerr << ans.conflict << '\n';
     // assert(check(ans.lsc));
-    
+
     ofstream csvFile(logFile, ios::app);
     if (!check(ans.lsc)) {
         csvFile << "[LogicError] ";
     }
     csvFile << argv[3] << ", "
-            << "HEA-ELITE, "
-            << seed << ", "
+            << "HEA-ELITE, " << seed << ", "
             << double(clock() - start) / CLOCKS_PER_SEC << ", "
             << ans.conflict.edge << "\n";
     cerr << double(clock() - start) / CLOCKS_PER_SEC << '\n';

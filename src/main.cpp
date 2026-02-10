@@ -548,7 +548,6 @@ struct Sol {
                     }
                 }
                 if (fixed[i][j] == -1 && fea[i][j][lsc[i][j]] == false) {
-                    conflict.color++;
                     bi[i].insert(j);
                 }
                 conflict.edge += (conflictC[j][lsc[i][j]]++);

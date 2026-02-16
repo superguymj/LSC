@@ -15,6 +15,7 @@ def check(lsc):
 
 
 os.system('make')
+print("build done")
 for root, _, files in os.walk('./data/'):
     for file in files:
         # if file[:3] == 'QWH':

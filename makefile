@@ -2,7 +2,11 @@
 CXX = g++
 
 # 编译选项
+<<<<<<< HEAD
 CXXFLAGS = -std=c++23 -O3 -march=native -funroll-loops
+=======
+CXXFLAGS = -std=c++23 -O3 -funroll-loops -ftree-vectorize
+>>>>>>> d4e97354f8c35fd757f1f7dc28825f4963012b02
 
 # 源文件目录
 SRC_DIR = src
@@ -23,6 +27,9 @@ $(TARGET): $(SRC)
 # 清理目标文件
 clean:
 	rm -f $(TARGET)
+
+debug: $(SRC)
+	$(CXX) -o lsc $^ -g -Wall -Wextra
 
 # PHONY 目标，防止和文件名冲突
 .PHONY: all clean

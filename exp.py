@@ -1,17 +1,16 @@
 import os
-
+import math
 
 lines = []
 with open('temp.txt', 'r') as f:
     lines = f.readlines()
 
-a = 0.0
-# for i in range(0, 60, 2):
-#     line = lines[i]
-#     b = float(line.split()[-1][:-1])
-#     a += b
+n = int(math.sqrt(len(lines)))
+for i in range(n):
+    a = lines[i * n : i * n + n]
+    a = list(map(int, a))
+    for j in range(n):
+        a[j] -= 1
+    print(*a)
     
-for line in lines:
-    a += float(line)
     
-print(a / 30)

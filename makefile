@@ -2,7 +2,7 @@
 CXX = g++
 
 # 编译选项
-CXXFLAGS = -std=c++23 -O3
+CXXFLAGS = -std=c++23 -O3 -march=native -funroll-loops
 
 # 源文件目录
 SRC_DIR = src
@@ -11,7 +11,7 @@ SRC_DIR = src
 TARGET = lsc
 
 # 源文件
-SRC = $(SRC_DIR)/main.cpp
+SRC = $(SRC_DIR)/main.cpp $(SRC_DIR)/utils.cpp $(SRC_DIR)/reduction.cpp
 
 # 规则部分
 all: $(TARGET)

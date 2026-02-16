@@ -17,10 +17,8 @@ def check(lsc):
 os.system('make')
 for root, _, files in os.walk('./data/'):
     for file in files:
-        # if file not in ['{}.txt'.format(i) for i in range(10)]:
+        # if file[:3] == 'QWH':
         #     continue
-        if file[:3] == 'QWH':
-            continue
         # if file[:8] == 'qg.order':
         #     continue
         
@@ -30,9 +28,9 @@ for root, _, files in os.walk('./data/'):
         count = 0
         T = 30
         for i in range(T):
-            os.system("lsc 600 {} {} <data/{} >temp.txt".format(i + 1, file, file))
+            os.system("lsc 1000 {} {} < data/{} > test.out".format(i + 1, file, file))
             lines = []
-            with open('temp.txt', 'r') as f:
+            with open('test.out', 'r') as f:
                 lines = f.readlines()
             n = len(lines)
             lsc = [[] for i in range(n)]
@@ -40,5 +38,8 @@ for root, _, files in os.walk('./data/'):
                 lsc[i] = list(map(int, lines[i].strip().split(' ')))
             if check(lsc):
                 count += 1
+            
+            # os.system("SRLS {} dataset/TraditionalInstances/{} test.out".format(i + 1, file))
+            
             
         print("{}: {}/{}".format(file, count, T))

@@ -167,7 +167,7 @@ struct Sol {
 
     }
 
-    tuple<Reduce, Reduce> getReduce(TabuTab& tabu, int iter) {
+    tuple<Reduce, Reduce> getReduce(const TabuTab& tabu, int iter) {
         Reduce tb, ntb, rd, nrd;
         RandSelect stb, sntb, srd(1), snrd(1);
 

@@ -57,22 +57,22 @@ struct Conflict {
 
 struct Reduce {
     Conflict r;
-    short row, i, j;
-    Reduce(Conflict r = Conflict(), short row = 0, short i = 0, short j = 0)
+    char row, i, j;
+    Reduce(Conflict r = Conflict(), char row = 0, char i = 0, char j = 0)
         : r(r), row(row), i(i), j(j) {}
 };
 
 struct Sol {
     static vector<vector<vector<bool>>> fea;
     static int n;
-    static vector<vector<short>> fixed, flexiblePos, flexibleVal;
+    static vector<vector<char>> fixed, flexiblePos, flexibleVal;
 
     static vector<vector<vector<int>>> den;
 
-    vector<vector<short>> lsc;
+    vector<vector<char>> lsc;
 
     Conflict conflict;
-    vector<vector<short>> conflictC, conflictR;
+    vector<vector<char>> conflictC, conflictR;
 
     vector<Bitset> bi;
     Bitset rows;
@@ -83,7 +83,7 @@ struct Sol {
 		}
 
 
-		// vector<vector<short>> val(n, vector<short>(n));
+		// vector<vector<char>> val(n, vector<char>(n));
 		// vector<int> Row(n);
 		// iota(Row.begin(), Row.end(), 0);
 		// shuffle(Row.begin(), Row.end(), rnd);
@@ -121,8 +121,8 @@ struct Sol {
         conflict = Conflict(0, 0);
         bi.assign(n, Bitset(n));
 		rows.clear();
-        conflictC.assign(n, vector<short>(n));
-        conflictR.assign(n, vector<short>(n));
+        conflictC.assign(n, vector<char>(n));
+        conflictR.assign(n, vector<char>(n));
 
         for (int j = 0; j < n; j++) {
             for (int i = 0; i < n; i++) {
@@ -154,7 +154,7 @@ struct Sol {
         }
     }
 
-    void Set(short i, short j, short c) {
+    void Set(char i, char j, char c) {
         auto src = lsc[i][j];
         conflictC[j][src]--;
         conflictR[j][src] ^= i;
@@ -276,9 +276,9 @@ struct Sol {
 };
 
 int Sol::n = 0;
-vector<vector<short>> Sol::fixed = {};
-vector<vector<short>> Sol::flexiblePos = {};
-vector<vector<short>> Sol::flexibleVal = {};
+vector<vector<char>> Sol::fixed = {};
+vector<vector<char>> Sol::flexiblePos = {};
+vector<vector<char>> Sol::flexibleVal = {};
 vector<vector<vector<bool>>> Sol::fea = {};
 vector<vector<vector<int>>> Sol::den = {};
 
@@ -298,10 +298,10 @@ int main(int argc, char *argv[]) {
     cin >> n;
 
     Sol::n = n;
-    Sol::fixed.assign(n, vector<short>(n, -1));
+    Sol::fixed.assign(n, vector<char>(n, -1));
     Sol::fea.assign(n, vector<vector<bool>>(n, vector<bool>(n, true)));
-    Sol::flexiblePos.assign(n, vector<short>());
-    Sol::flexibleVal.assign(n, vector<short>());
+    Sol::flexiblePos.assign(n, vector<char>());
+    Sol::flexibleVal.assign(n, vector<char>());
     Sol::den.assign(n, vector<vector<int>>(n, vector<int>(n)));
 
     int u, v, w;
@@ -357,7 +357,7 @@ int main(int argc, char *argv[]) {
 
     constexpr int genT = 1500;
 
-    set<vector<vector<short>>> st;
+    set<vector<vector<char>>> st;
 
     auto Tabu = [&](auto &sol, int T) {
         sol.init();
@@ -377,7 +377,7 @@ int main(int argc, char *argv[]) {
                 maxR = rd;
             }
 
-            auto Set = [&](short i, short j, short c) {
+            auto Set = [&](char i, char j, char c) {
                 auto src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
@@ -443,12 +443,12 @@ int main(int argc, char *argv[]) {
 
     for (auto &row : ans.lsc) {
         for (int j = 0; j < n; j++) {
-            cout << row[j] << " \n"[j == n - 1];
+            cout << (int)row[j] << " \n"[j == n - 1];
         }
     }
 
-    auto check = [&](vector<vector<short>> &lsc) -> bool {
-        auto is_permutation = [&](vector<short> p) {
+    auto check = [&](vector<vector<char>> &lsc) -> bool {
+        auto is_permutation = [&](vector<char> p) {
             sort(p.begin(), p.end());
             for (int i = 0; i < n; i++) {
                 if (p[i] != i) {
@@ -466,7 +466,7 @@ int main(int argc, char *argv[]) {
             if (!is_permutation(lsc[i])) {
                 return false;
             }
-            vector<short> p(n);
+            vector<char> p(n);
             for (int j = 0; j < n; j++) {
                 p[j] = lsc[j][i];
             }

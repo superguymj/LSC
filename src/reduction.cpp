@@ -135,24 +135,13 @@ std::vector<std::vector<std::vector<bool>>> Rotate(const std::vector<std::vector
 }
 
 int RotateReduction(std::vector<std::vector<std::vector<bool>>>& fea) {
-	int iter = 0;
-	while (Reduction(fea) || iter) {
+	int iter = 0, temp;
+	while ((temp = Reduction(fea)) || iter) {
+		if (temp == -1) {
+			return -1;
+		}
 		iter = (iter + 1) % 3;
 		Rotate(fea).swap(fea);
 	}
-
-	int n = fea.size();
-	std::vector<int> a;
-	for (int i = 0; i < n; i++) {
-		for (int j = 0; j < n; j++) {
-			int tot = std::accumulate(fea[i][j].begin(), fea[i][j].end(), 0);
-			if (tot > 1) {
-				a.push_back(tot);
-			}
-		}
-	}
-	// sort(a.begin(), a.end());
-	// for (int i = 0; i < a.size(); i++) {
-	// 	std::cerr << a[i] << " \n"[i == a.size() - 1];
-	// }
+	return 0;
 }

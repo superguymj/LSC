@@ -207,7 +207,7 @@ struct Sol {
                     int rc = den[row][i][x] + den[row][j][y] - den[row][i][y] - den[row][j][x];
 
                     Conflict r = Conflict(-re, -rc);
-					bool TabuFlag = tabu(row, i, y) > iter || tabu(row, j, x) > iter;
+					bool TabuFlag = tabu(row, i, y) > iter && tabu(row, j, x) > iter;
                     auto &R = TabuFlag ? tb : ntb;
                     auto &s = TabuFlag ? stb : sntb;
                     if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {

@@ -6,69 +6,9 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
+#include <numeric>
 
-bool dfs(std::vector<std::vector<bool> *> p) {
-    if (p.size() <= 1) {
-        return false;
-    }
-	const int n = p[0]->size();
-    bool res = false;
-    for (int i = 0; i < (int)p.size(); i++) {
-        Bitset v(*p[i]);
-        if (v.count() == 1) {
-            p.erase(p.begin() + i);
-            for (int w = 0; w < n; w++) {
-                if (v(w)) {
-                    for (auto it : p) {
-                        if ((*it)[w]) {
-                            (*it)[w] = false;
-                            res = true;
-                        }
-                    }
-                }
-            }
-            return res || dfs(p);
-        }
-    }
-
-    std::vector<std::map<Bitset, std::vector<int>>> f(p.size() + 1);
-    for (int i = 0; i < (int)p.size(); i++) {
-        Bitset v(*p[i]);
-        for (int sz = std::min(i, (int)p.size() - 2); sz; sz--) {
-            for (auto &[b, _] : f[sz]) {
-                auto u = b | v;
-                if (u.count() == sz + 1) {
-                    std::vector<std::vector<bool> *> rp{p[i]};
-                    p.erase(p.begin() + i);
-                    std::reverse(_.begin(), _.end());
-                    for (auto x : _) {
-                        rp.push_back(p[x]);
-                        p.erase(p.begin() + x);
-                    }
-                    for (int w = 0; w < n; w++) {
-                        if (u(w)) {
-                            for (auto it : p) {
-                                if ((*it)[w]) {
-                                    (*it)[w] = false;
-                                    res = true;
-                                }
-                            }
-                        }
-                    }
-                    return res || dfs(p) || dfs(rp);
-                }
-                if (!f[sz + 1].count(u)) {
-                    auto &r = f[sz + 1][u];
-                    r = _, r.push_back(i);
-                }
-            }
-        }
-        f[1][v] = {i};
-    }
-    return res;
-}
-
-bool flow(std::vector<std::vector<bool> *> p) {
+int flow(std::vector<std::vector<bool> *> p) {
 	const int n = p.size();
 	int s = 2 * n + 1, t = s + 1;
 	MaxFlow<int> f(t + 1);
@@ -81,7 +21,9 @@ bool flow(std::vector<std::vector<bool> *> p) {
 			}
 		}
 	}
-	f.flow(s, t);
+	if (f.flow(s, t) < n) {
+		return -1;
+	}
 
 	std::vector<int> to(n);
 	for (int i = 0; i < n; i++) {
@@ -117,7 +59,7 @@ bool flow(std::vector<std::vector<bool> *> p) {
 	return flag;
 }
 
-bool Reduction(std::vector<std::vector<std::vector<bool>>> &fea) {
+int Reduction(std::vector<std::vector<std::vector<bool>>> &fea) {
 	const int n = fea.size();
     bool loop = true, modify = false;
     std::vector<bool> R(n, true), C(n, true);
@@ -134,6 +76,9 @@ bool Reduction(std::vector<std::vector<std::vector<bool>>> &fea) {
                 p.push_back(&fea[i][j]);
             }
             auto now = flow(p);
+			if (now == -1) {
+				return -1;
+			}
             loop |= now;
 			modify |= now;
             if (now) {
@@ -158,6 +103,9 @@ bool Reduction(std::vector<std::vector<std::vector<bool>>> &fea) {
                 p.push_back(&fea[i][j]);
             }
             auto now = flow(p);
+			if (now == -1) {
+				return -1;
+			}
             loop |= now;
 			modify |= now;
             if (now) {
@@ -186,10 +134,25 @@ std::vector<std::vector<std::vector<bool>>> Rotate(const std::vector<std::vector
 	return rfea;
 }
 
-void RotateReduction(std::vector<std::vector<std::vector<bool>>>& fea) {
+int RotateReduction(std::vector<std::vector<std::vector<bool>>>& fea) {
 	int iter = 0;
 	while (Reduction(fea) || iter) {
 		iter = (iter + 1) % 3;
 		Rotate(fea).swap(fea);
 	}
+
+	int n = fea.size();
+	std::vector<int> a;
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			int tot = std::accumulate(fea[i][j].begin(), fea[i][j].end(), 0);
+			if (tot > 1) {
+				a.push_back(tot);
+			}
+		}
+	}
+	// sort(a.begin(), a.end());
+	// for (int i = 0; i < a.size(); i++) {
+	// 	std::cerr << a[i] << " \n"[i == a.size() - 1];
+	// }
 }

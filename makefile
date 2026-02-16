@@ -11,7 +11,7 @@ SRC_DIR = src
 TARGET = lsc
 
 # 源文件
-SRC = $(SRC_DIR)/main.cpp $(SRC_DIR)/utils.cpp $(SRC_DIR)/reduction.cpp
+SRC = $(SRC_DIR)/Tabu.cpp $(SRC_DIR)/utils.cpp $(SRC_DIR)/reduction.cpp
 
 # 规则部分
 all: $(TARGET)

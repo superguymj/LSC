@@ -7,11 +7,12 @@
 #include <iostream>
 #include <vector>
 
-#include "MaxFlow.h"
-#include "reduction.h"
-#include "utils.h"
 #include "Array.h"
 #include "Bitset.h"
+#include "MaxFlow.h"
+#include "MinCostFlow.h"
+#include "reduction.h"
+#include "utils.h"
 
 #define MESSAGE
 
@@ -62,11 +63,11 @@ struct Reduce {
 };
 
 struct Sol {
-    static vector<vector<vector<bool>>> fea;
-    static int n;
-    static vector<vector<short>> fixed, flexiblePos, flexibleVal;
+    int n;
+    vector<vector<vector<bool>>> fea;
+    vector<vector<short>> fixed, flexiblePos, flexibleVal;
 
-    static vector<vector<vector<int>>> den;
+    vector<vector<vector<int>>> den;
 
     vector<vector<short>> lsc;
 
@@ -76,16 +77,48 @@ struct Sol {
     vector<Bitset> bi;
     Bitset rows;
 
-    Sol() : lsc(fixed), bi(n, Bitset(n)), rows(n) {
+    Sol(vector<vector<vector<bool>>> _fea) : n(_fea.size()), fea(_fea), rows(n) {
+        fixed.assign(n, vector<short>(n, -1));
+        flexiblePos.assign(n, {});
+        flexibleVal.assign(n, {});
+        den.assign(n, vector<vector<int>>(n, vector<int>(n)));
+
+        for (int i = 0; i < n; i++) {
+            vector<bool> vis(n);
+            for (int j = 0; j < n; j++) {
+                int tot = accumulate(fea[i][j].begin(), fea[i][j].end(), 0);
+                if (tot == 1) {
+                    int w = find(fea[i][j].begin(), fea[i][j].end(), true) - fea[i][j].begin();
+                    fixed[i][j] = w;
+                    vis[w] = true;
+                } else {
+                    flexiblePos[i].push_back(j);
+                }
+                for (int w = 0; w < n; w++) {
+                    if (!fea[i][j][w]) {
+                        den[i][j][w] = fix;
+                    }
+                }
+            }
+            for (int w = 0; w < n; w++) {
+                if (!vis[w]) {
+                    flexibleVal[i].push_back(w);
+                }
+            }
+        }
+        lsc = fixed;
+
         for (int i = 0; i < n; i++) {
             Shuffle(i);
         }
+
+        init();
     }
 
     void init() {
         conflict = Conflict(0, 0);
         bi.assign(n, Bitset(n));
-		rows.clear();
+        rows.clear();
         conflictC.assign(n, vector<short>(n));
         conflictR.assign(n, vector<short>(n));
 
@@ -168,11 +201,12 @@ struct Sol {
                         continue;
                     }
                     auto x = lsc[row][i], y = lsc[row][j];
-                    int re = conflictC[i][x] + conflictC[j][y] - 2 - conflictC[i][y] - conflictC[j][x];
+                    int re =
+                        conflictC[i][x] + conflictC[j][y] - 2 - conflictC[i][y] - conflictC[j][x];
                     int rc = den[row][i][x] + den[row][j][y] - den[row][i][y] - den[row][j][x];
 
                     Conflict r = Conflict(-re, -rc);
-					bool TabuFlag = tabu(row, i, y) > iter && tabu(row, j, x) > iter;
+                    bool TabuFlag = tabu(row, i, y) > iter && tabu(row, j, x) > iter;
                     auto &R = TabuFlag ? tb : ntb;
                     auto &s = TabuFlag ? stb : sntb;
                     if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {
@@ -209,7 +243,7 @@ struct Sol {
         int s = 2 * n + 1, t = s + 1;
         MaxFlow<int> f(t + 1);
         for (int i = 0; i < n; i++) {
-        	shuffle(ord.begin(), ord.end(), rnd);
+            shuffle(ord.begin(), ord.end(), rnd);
             f.addEdge(s, i, 1);
             f.addEdge(i + n, t, 1);
             for (auto j : ord) {
@@ -240,13 +274,6 @@ struct Sol {
     bool operator==(const Sol &t) const { return conflict == t.conflict; }
 };
 
-int Sol::n = 0;
-vector<vector<short>> Sol::fixed = {};
-vector<vector<short>> Sol::flexiblePos = {};
-vector<vector<short>> Sol::flexibleVal = {};
-vector<vector<vector<bool>>> Sol::fea = {};
-vector<vector<vector<int>>> Sol::den = {};
-
 int main(int argc, char *argv[]) {
     ios::sync_with_stdio(false);
     cin.tie(0);
@@ -262,71 +289,31 @@ int main(int argc, char *argv[]) {
     int n;
     cin >> n;
 
-    Sol::n = n;
-    Sol::fixed.assign(n, vector<short>(n, -1));
-    Sol::fea.assign(n, vector<vector<bool>>(n, vector<bool>(n, true)));
-    Sol::flexiblePos.assign(n, vector<short>());
-    Sol::flexibleVal.assign(n, vector<short>());
-    Sol::den.assign(n, vector<vector<int>>(n, vector<int>(n)));
-
+    vector<vector<vector<bool>>> fea(n, vector<vector<bool>>(n, vector<bool>(n, true)));
+	vector<vector<short>> fixed(n, vector<short>(n, -1));
     int u, v, w;
     while (cin >> u >> v >> w) {
-        Sol::fixed[u][v] = w;
+		fixed[u][v] = w;
         for (int i = 0; i < n; i++) {
             if (i != u) {
-                Sol::fea[i][v][w] = false;
+                fea[i][v][w] = false;
             }
             if (i != v) {
-                Sol::fea[u][i][w] = false;
+                fea[u][i][w] = false;
             }
         }
-        Sol::fea[u][v].assign(n, false);
-        Sol::fea[u][v][w] = true;
+        fea[u][v].assign(n, false);
+        fea[u][v][w] = true;
     }
 
-	RotateReduction(Sol::fea);
+    RotateReduction(fea);
 
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            int tot = accumulate(Sol::fea[i][j].begin(), Sol::fea[i][j].end(), 0);
-            if (tot == 1) {
-                Sol::fixed[i][j] = find(Sol::fea[i][j].begin(), Sol::fea[i][j].end(), true) -
-                                   Sol::fea[i][j].begin();
-            }
-        }
-    }
-    for (int i = 0; i < n; i++) {
-        vector<bool> vis(n);
-        for (int j = 0; j < n; j++) {
-            if (Sol::fixed[i][j] != -1) {
-                vis[Sol::fixed[i][j]] = true;
-            } else {
-                Sol::flexiblePos[i].push_back(j);
-            }
-            for (int w = 0; w < n; w++) {
-                if (Sol::fea[i][j][w]) {
-                    Sol::den[i][j][w] = 0;
-                } else {
-                    Sol::den[i][j][w] = fix;
-                }
-            }
-        }
-        for (int w = 0; w < n; w++) {
-            if (!vis[w]) {
-                Sol::flexibleVal[i].push_back(w);
-            }
-        }
-    }
-
-    auto den = Sol::den;
-
-    constexpr int genT = 1500;
+    constexpr int genT = 1000;
 
     set<vector<vector<short>>> st;
 
     auto Tabu = [&](auto &sol, int T) {
-        sol.init();
-        // cerr << "Tabu start" << '\n';
+        // cerr << "Tabu start " << sol.conflict << '\n';
         auto best = sol;
         const int P = rnd() % 4 + 1;
         constexpr int base = 10;
@@ -357,9 +344,9 @@ int main(int argc, char *argv[]) {
             sol.conflict = sol.conflict + maxR.r;
 
             if (sol < best) {
-				if (count > 100) {
-					// cerr << "Tabu: " << count << '\n';
-				}
+                if (count > 100) {
+                    // cerr << "Tabu: " << count << '\n';
+                }
                 count = 1;
                 best = sol;
             }
@@ -372,16 +359,15 @@ int main(int argc, char *argv[]) {
         // cerr << "Tabu end " << sol.conflict << '\n';
 
         {
-            if (sol.conflict.edge < 6 && !st.count(sol.lsc)) {
-                st.insert(sol.lsc);
+            if (sol.conflict.edge < 10) {
                 // cerr << sol.conflict << '\n';
                 int c = 1;
                 for (int i = 0; i < n; i++) {
                     for (int j = 0; j < n; j++) {
                         if (sol.conflictC[j][sol.lsc[i][j]] == 1) {
-                            Sol::den[i][j][sol.lsc[i][j]] -= c;
+                            sol.den[i][j][sol.lsc[i][j]] -= c;
                         } else {
-                            Sol::den[i][j][sol.lsc[i][j]] += c;
+                            sol.den[i][j][sol.lsc[i][j]] += c;
                         }
                     }
                 }
@@ -389,22 +375,71 @@ int main(int argc, char *argv[]) {
         }
     };
 
-    Sol ans;
-    ans.init();
-    int iter = 0;
-    for (; checkTime() && ans.conflict.edge; iter++) {
-        Sol sol;
-        Tabu(sol, genT);
-        if (sol.conflict < ans.conflict) {
-            ans = sol;
+    Sol ans(fea);
+    queue<vector<vector<vector<bool>>>> q;
+    q.push(fea);
+
+    while (q.size() && ans.conflict.edge) {
+        auto fea = q.front();
+        q.pop();
+
+		Sol sol(fea);
+        for (int iter = 0; checkTime() && iter < 1; iter++) {
+            Tabu(sol, genT);
+
+			// cerr << "sol = " << sol.conflict << '\n';
+            if (sol < ans) {
+                ans = sol;
+                break;
+            }
+
+			for (int i = 0; i < n; i++) {
+				sol.Shuffle(i);
+			}
+			sol.init();
         }
-        if (iter == 200) {
-            iter = 0;
-            Sol::den = den;
-            ans.init();
+
+		cerr << "ans = " << ans.conflict << '\n';
+        if (!ans.conflict) {
+            break;
         }
+
+		RandSelect s(1);
+		int u = -1, v = -1, w = n + 1;
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				int tot = accumulate(fea[i][j].begin(), fea[i][j].end(), 0);
+				if (tot > 1) {
+					if (tot < w || (tot == w && s.isSelect(rnd))) {
+						if (tot < w) {
+							s.reset();
+						}
+						u = i, v = j, w = tot;
+					}
+				}
+			}
+		}
+
+
+		auto temp = fea;
+		vector<int> p;
+		for (int w = 0; w < n; w++) {
+			if (fea[u][v][w]) {
+				p.push_back(w);
+				fea[u][v][w] = temp[u][v][w] = false;
+			}
+		}
+		shuffle(p.begin(), p.end(), rnd);
+
+		for (auto w : p) {
+			fea[u][v][w] = true;
+			if (!RotateReduction(fea)) {
+				q.push(fea);
+			}
+			fea = temp;
+		}
+		cerr << u << ' ' << v << ' ' << w << '\n';
     }
-    cerr << "Iter = " << iter << '\n';
 
     for (auto &row : ans.lsc) {
         for (int j = 0; j < n; j++) {
@@ -424,7 +459,7 @@ int main(int argc, char *argv[]) {
         };
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-                if (Sol::fixed[i][j] != -1 && lsc[i][j] != Sol::fixed[i][j]) {
+                if (fixed[i][j] != -1 && lsc[i][j] != fixed[i][j]) {
                     return false;
                 }
             }
@@ -442,17 +477,6 @@ int main(int argc, char *argv[]) {
         return true;
     };
 
-    // {
-    //     ofstream fout("data.txt");
-    //     for (int i = 0; i < n; i++) {
-    //         for (int j = 0; j < n; j++) {
-    //             for (int k = 0; k < n; k++) {
-    //                 fout << Sol::den[i][j][k] << " \n"[k == n - 1];
-    //             }
-    //         }
-    //     }
-    // }
-
 #if defined(MESSAGE)
     ans.init();
     cerr << ans.conflict << '\n';
@@ -463,8 +487,8 @@ int main(int argc, char *argv[]) {
     //     csvFile << "[LogicError] ";
     // }
     csvFile << now_str() << ", " << argv[3] << ", "
-            << "TABU(flow-tarjan), " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC
-            << ", " << ans.conflict.edge << "\n";
+            << "dfs(flow-400), " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC << ", "
+            << ans.conflict.edge << "\n";
     cerr << double(clock() - start) / CLOCKS_PER_SEC << '\n';
 #endif
 

@@ -2,11 +2,7 @@
 CXX = g++
 
 # 编译选项
-<<<<<<< HEAD
-CXXFLAGS = -std=c++23 -O3 -march=native -funroll-loops
-=======
-CXXFLAGS = -std=c++23 -O3 -funroll-loops -ftree-vectorize
->>>>>>> d4e97354f8c35fd757f1f7dc28825f4963012b02
+CXXFLAGS = -std=c++23 -O3 -march=native -funroll-loops -ftree-vectorize
 
 # 源文件目录
 SRC_DIR = src

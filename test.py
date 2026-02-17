@@ -23,24 +23,29 @@ for root, _, files in os.walk('./data/'):
         # if file[:8] == 'qg.order':
         #     continue
         
-        if file != "qwhdec.order33.holes381.bal.1.col":
+        # if file != "qwhdec.order33.holes381.bal.1.col":
+        #     continue
+        
+        if 'QWH-50-70' not in file:
             continue
         
         count = 0
         T = 30
         for i in range(T):
-            os.system("lsc 1000 {} {} < data/{} > test.out".format(i + 1, file, file))
-            lines = []
-            with open('test.out', 'r') as f:
-                lines = f.readlines()
-            n = len(lines)
-            lsc = [[] for i in range(n)]
-            for i in range(n):
-                lsc[i] = list(map(int, lines[i].strip().split(' ')))
-            if check(lsc):
-                count += 1
+            # os.system("lsc 1000 {} {} < data/{} > test.out".format(i + 1, file, file))
+            # lines = []
+            # with open('test.out', 'r') as f:
+            #     lines = f.readlines()
+            # n = len(lines)
+            # lsc = [[] for i in range(n)]
+            # for i in range(n):
+            #     lsc[i] = list(map(int, lines[i].strip().split(' ')))
+            # if check(lsc):
+            #     count += 1
             
-            # os.system("SRLS {} dataset/TraditionalInstances/{} test.out".format(i + 1, file))
+            # os.system("SRLS {} dataset/LSC_50/LSC_50_70/{} test.out".format(i + 1, file))
+            # os.system("lsc {} dataset/TraditionalInstances/{} test.out".format(i + 1, file))
+            os.system("lsc {} dataset/LSC_50/LSC_50_70/{} test.out".format(i + 1, file))
             
             
         print("{}: {}/{}".format(file, count, T))

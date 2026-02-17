@@ -1,5 +1,5 @@
-#pragma GCC optimize("O3,unroll-loops")
-#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
+// #pragma GCC optimize("O3,unroll-loops")
+// #pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
 
 #include <algorithm>
 #include <ext/pb_ds/assoc_container.hpp>
@@ -13,7 +13,6 @@
 #include "MinCostFlow.h"
 #include "reduction.h"
 #include "utils.h"
-
 
 #define MESSAGE
 
@@ -32,7 +31,7 @@ mt19937 rnd;
 
 constexpr double eps = 0.1;
 
-using TabuTab = Array3D<int>;
+using TabuTab = Array3D<i64>;
 
 struct Conflict {
     int edge = 1E9, color = 1E9;
@@ -191,13 +190,13 @@ struct Sol {
         }
     }
 
-    tuple<Reduce, Reduce, Reduce> getReduce(const TabuTab &tabu, int iter) {
-        Reduce tb, ntb, rd;
-        RandSelect stb(1), sntb(1), srd(1);
+    tuple<Reduce, Reduce, Reduce, Reduce> getReduce(const TabuTab &tabu, i64 iter) {
+        Reduce tb, ntb, rd, nrd;
+        RandSelect stb(1), sntb(1), srd(1), snrd(1);
         for (int row = rows.begin(); row < n; row = rows.next(row)) {
             for (int i = bi[row].begin(); i < n; i = bi[row].next(i)) {
-                Reduce best;
-                RandSelect sbest(1);
+                Reduce best, nbest;
+                RandSelect sbest(1), snbest(1);
                 for (auto j : flexiblePos[row]) {
                     if (i == j) {
                         continue;
@@ -206,17 +205,29 @@ struct Sol {
                     int re =
                         conflictC[i][x] + conflictC[j][y] - 2 - conflictC[i][y] - conflictC[j][x];
                     int rc = den[row][i][x] + den[row][j][y] - den[row][i][y] - den[row][j][x];
-
+                    if (!re && !rc) {
+                        continue;
+                    }
                     Conflict r = Conflict(-re, -rc);
-                    bool TabuFlag = tabu(row, i, y) > iter && tabu(row, j, x) > iter;
+                    bool TabuFlag = tabu(row, i, y) > iter || tabu(row, j, x) > iter;
+
                     auto &R = TabuFlag ? tb : ntb;
                     auto &s = TabuFlag ? stb : sntb;
-                    if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {
-                        if (r < best.r) {
-                            sbest.reset();
+                    if (TabuFlag) {
+                        if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {
+                            if (r < best.r) {
+                                sbest.reset();
+                            }
+                            best = Reduce(r, row, i, j);
                         }
-                        best = Reduce(r, row, i, j);
-                    }
+                    } else {
+						if (r < nbest.r || (r == nbest.r && snbest.isSelect(rnd))) {
+                            if (r < nbest.r) {
+                                snbest.reset();
+                            }
+                            nbest = Reduce(r, row, i, j);
+                        }
+					}
 
                     if (r < R.r || (r == R.r && s.isSelect(rnd))) {
                         if (r < R.r) {
@@ -228,49 +239,46 @@ struct Sol {
                 if (srd.isSelect(rnd)) {
                     rd = best;
                 }
+				if (snrd.isSelect(rnd)) {
+					nrd = nbest;
+				}
             }
         }
-        return {tb, ntb, rd};
+        return {tb, ntb, rd, nrd};
     }
 
     void Shuffle(int row) {
-        // shuffle(flexibleVal[row].begin(), flexibleVal[row].end(), rnd);
-        // int k = 0;
-        // for (auto j : flexiblePos[row]) {
-        //     lsc[row][j] = flexibleVal[row][k++];
+        shuffle(flexibleVal[row].begin(), flexibleVal[row].end(), rnd);
+        int k = 0;
+        for (auto j : flexiblePos[row]) {
+            lsc[row][j] = flexibleVal[row][k++];
+        }
+
+        // vector<int> ord(n);
+        // iota(ord.begin(), ord.end(), 0);
+        // auto &p = fea[row];
+        // int s = 2 * n + 1, t = s + 1;
+        // MaxFlow<int> f(t + 1);
+        // for (int i = 0; i < n; i++) {
+        //     shuffle(ord.begin(), ord.end(), rnd);
+        //     f.addEdge(s, i, 1);
+        //     f.addEdge(i + n, t, 1);
+        //     for (auto j : ord) {
+        //         if (p[i][j]) {
+        //             f.addEdge(i, j + n, 1);
+        //         }
+        //     }
         // }
-
-        vector<int> ord(n);
-        iota(ord.begin(), ord.end(), 0);
-        auto &p = fea[row];
-        int s = 2 * n + 1, t = s + 1;
-        MaxFlow<int> f(t + 1);
-        for (int i = 0; i < n; i++) {
-            shuffle(ord.begin(), ord.end(), rnd);
-            f.addEdge(s, i, 1);
-            f.addEdge(i + n, t, 1);
-            for (auto j : ord) {
-                if (p[i][j]) {
-                    f.addEdge(i, j + n, 1);
-                }
-            }
-        }
-        f.flow(s, t);
-        for (int i = 0; i < n; i++) {
-            for (auto j : f.g[i]) {
-                auto [v, c] = f.e[j];
-                if (n <= v && v < 2 * n && !c) {
-                    lsc[row][i] = v - n;
-                    break;
-                }
-            }
-        }
-    }
-
-    Sol &operator=(const Sol &t) {
-        conflict = t.conflict;
-        lsc = t.lsc;
-        return *this;
+        // f.flow(s, t);
+        // for (int i = 0; i < n; i++) {
+        //     for (auto j : f.g[i]) {
+        //         auto [v, c] = f.e[j];
+        //         if (n <= v && v < 2 * n && !c) {
+        //             lsc[row][i] = v - n;
+        //             break;
+        //         }
+        //     }
+        // }
     }
 
     bool operator<(const Sol &t) const { return conflict < t.conflict; }
@@ -283,6 +291,9 @@ vector<vector<char>> Sol::flexiblePos = {};
 vector<vector<char>> Sol::flexibleVal = {};
 vector<vector<vector<bool>>> Sol::fea = {};
 vector<vector<vector<int>>> Sol::den = {};
+
+constexpr double alpha = 0.4;
+constexpr int rt0 = 10, rt_ub = 15, accu_ub = 1000, base = 10;
 
 int main(int argc, char *argv[]) {
     ios::sync_with_stdio(false);
@@ -357,33 +368,33 @@ int main(int argc, char *argv[]) {
 
     auto den = Sol::den;
 
-    constexpr int genT = 1500;
+    Sol ans;
+    ans.init();
 
-    set<vector<vector<char>>> st;
-
-    auto Tabu = [&](auto &sol, int T) {
-        sol.init();
+    auto Tabu = [&](auto sol) {
         // cerr << "Tabu start " << sol.conflict << '\n';
-        auto best = sol;
-        const int P = rnd() % 4 + 1;
-        constexpr int base = 10;
 
         TabuTab tabu(n);
 
-        int iter = 0, count = 1;
-        for (; count < T && checkTime(); count++, iter++) {
-            auto [tb, ntb, rd] = sol.getReduce(tabu, iter);
+        int accu = 0, rt = rt0;
 
-            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
-            if (maxR.r.edge > 0) {
-                maxR = rd;
-            }
+        i64 iter = 0;
+        for (; checkTime(); iter++) {
+            auto [tb, ntb, rd, nrd] = sol.getReduce(tabu, iter);
+			if (tb.r.edge > 0) {
+				tb = rd;
+			}
+			if (ntb.r.edge > 0) {
+				ntb = nrd;
+			}
 
+            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < ans.conflict) ? tb : ntb;
+			auto edge = sol.conflict.edge;
             auto Set = [&](char i, char j, char c) {
                 auto src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu(i, j, src) = iter + sol.conflict.edge + base + rnd() % P;
+                tabu(i, j, src) = iter + alpha * edge + rnd() % base + 1;
             };
 
             auto di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];
@@ -393,55 +404,31 @@ int main(int argc, char *argv[]) {
 
             sol.conflict = sol.conflict + maxR.r;
 
-            if (sol < best) {
-                if (count > 100) {
-                    // cerr << "Tabu: " << count << '\n';
-                }
-                count = 1;
-                best = sol;
-            }
-
-            if (!best.conflict) {
-                break;
-            }
-        }
-        sol = best;
-        // cerr << "Tabu end " << sol.conflict << '\n';
-
-        {
-            if (sol.conflict.edge < 6 && !st.count(sol.lsc)) {
-                st.insert(sol.lsc);
-                // cerr << sol.conflict << '\n';
-                int c = 1;
-                for (int i = 0; i < n; i++) {
-                    for (int j = 0; j < n; j++) {
-                        if (sol.conflictC[j][sol.lsc[i][j]] == 1) {
-                            Sol::den[i][j][sol.lsc[i][j]] -= c;
-                        } else {
-                            Sol::den[i][j][sol.lsc[i][j]] += c;
-                        }
+            if (sol < ans) {
+                ans = sol;
+                cerr << iter << ' ' << ans.conflict << '\n';
+            } else if (sol.conflict.edge - ans.conflict.edge > rt) {
+                // cerr << iter << ' ' << sol.conflict << ' ' << ans.conflict << " rt = " << rt << "
+                // accu = " << accu << '\n';
+                sol = ans;
+                iter = 0;
+                fill(tabu.a.begin(), tabu.a.end(), 0);
+                if (rt < rt_ub) {
+                    accu++;
+                    if (accu == accu_ub) {
+                        accu = 0;
+                        rt++;
                     }
                 }
+            }
+
+            if (!ans.conflict) {
+                break;
             }
         }
     };
 
-    Sol ans;
-    ans.init();
-    int iter = 0;
-    for (; checkTime() && ans.conflict.edge; iter++) {
-        Sol sol;
-        Tabu(sol, genT);
-        if (sol.conflict < ans.conflict) {
-            ans = sol;
-        }
-        if (iter == 400) {
-            iter = 0;
-            Sol::den = den;
-            ans.init();
-        }
-    }
-    cerr << "Iter = " << iter << '\n';
+    Tabu(ans);
 
     for (auto &row : ans.lsc) {
         for (int j = 0; j < n; j++) {
@@ -500,8 +487,8 @@ int main(int argc, char *argv[]) {
     //     csvFile << "[LogicError] ";
     // }
     csvFile << now_str() << ", " << argv[3] << ", "
-            << "TABU(flow-400), " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC
-            << ", " << ans.conflict.edge << "\n";
+            << "SRLS, " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC << ", "
+            << ans.conflict.edge << "\n";
     cerr << double(clock() - start) / CLOCKS_PER_SEC << '\n';
 #endif
 

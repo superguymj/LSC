@@ -136,9 +136,6 @@ struct Sol {
                         }
                     }
                 }
-                if (fixed[i][j] == -1 && fea[i][j][x] == false) {
-                    bi[i].set(j);
-                }
                 conflict.edge += (conflictC[j][x]++);
                 conflictR[j][x] ^= i;
 
@@ -160,7 +157,7 @@ struct Sol {
 
         if (conflictC[j][src] == 1) {
             auto row = conflictR[j][src];
-            if (fixed[row][j] == -1 && fea[row][j][lsc[row][j]]) {
+            if (fixed[row][j] == -1) {
                 bi[row].reset(j);
                 if (!bi[row].any()) {
                     rows.reset(row);
@@ -179,7 +176,7 @@ struct Sol {
         conflictC[j][c]++;
         conflictR[j][c] ^= i;
 
-        if (conflictC[j][c] > 1 || !fea[i][j][c]) {
+        if (conflictC[j][c] > 1) {
             bi[i].set(j);
             rows.set(i);
         } else {
@@ -190,9 +187,9 @@ struct Sol {
         }
     }
 
-    tuple<Reduce, Reduce, Reduce, Reduce> getReduce(const TabuTab &tabu, i64 iter) {
+    pair<Reduce, Reduce> getReduce(const TabuTab &tabu, i64 iter) {
         Reduce tb, ntb, rd, nrd;
-        RandSelect stb(1), sntb(1), srd(1), snrd(1);
+        RandSelect stb(1), sntb(1), srd(2), snrd(2);
         for (int row = rows.begin(); row < n; row = rows.next(row)) {
             for (int i = bi[row].begin(); i < n; i = bi[row].next(i)) {
                 Reduce best, nbest;
@@ -242,7 +239,13 @@ struct Sol {
 				}
             }
         }
-        return {tb, ntb, rd, nrd};
+		if (tb.r.edge > 0 && rd.i != -1) {
+			tb = rd;
+		}
+		if (ntb.r.edge > 0 && nrd.i != -1) {
+			ntb = nrd;
+		}
+        return {tb, ntb};
     }
 
     void Shuffle(int row) {
@@ -378,15 +381,12 @@ int main(int argc, char *argv[]) {
 
         i64 iter = 0;
         for (; checkTime(); iter++) {
-            auto [tb, ntb, rd, nrd] = sol.getReduce(tabu, iter);
-			if (tb.r.edge > 0) {
-				tb = rd;
-			}
-			if (ntb.r.edge > 0) {
-				ntb = nrd;
-			}
+            auto [tb, ntb] = sol.getReduce(tabu, iter);
 
-            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < ans.conflict) ? tb : ntb;
+            auto maxR = (tb.i != -1 && tb.r < ntb.r && sol.conflict.edge + tb.r.edge < ans.conflict.edge) ? tb : ntb;
+			if (maxR.i == -1) {
+				continue;
+			}
 			auto edge = sol.conflict.edge;
             auto Set = [&](char i, char j, char c) {
                 auto src = sol.lsc[i][j];

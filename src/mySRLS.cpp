@@ -58,7 +58,7 @@ struct Conflict {
 struct Reduce {
     Conflict r;
     char row, i, j;
-    Reduce(Conflict r = Conflict(), char row = 0, char i = 0, char j = 0)
+    Reduce(Conflict r = Conflict(), char row = -1, char i = -1, char j = -1)
         : r(r), row(row), i(i), j(j) {}
 };
 
@@ -205,9 +205,7 @@ struct Sol {
                     int re =
                         conflictC[i][x] + conflictC[j][y] - 2 - conflictC[i][y] - conflictC[j][x];
                     int rc = den[row][i][x] + den[row][j][y] - den[row][i][y] - den[row][j][x];
-                    if (!re && !rc) {
-                        continue;
-                    }
+                    
                     Conflict r = Conflict(-re, -rc);
                     bool TabuFlag = tabu(row, i, y) > iter || tabu(row, j, x) > iter;
 
@@ -236,10 +234,10 @@ struct Sol {
                         R = Reduce(r, row, i, j);
                     }
                 }
-                if (srd.isSelect(rnd)) {
+                if (best.i != -1 && srd.isSelect(rnd)) {
                     rd = best;
                 }
-				if (snrd.isSelect(rnd)) {
+				if (nbest.i != -1 && snrd.isSelect(rnd)) {
 					nrd = nbest;
 				}
             }
@@ -406,7 +404,7 @@ int main(int argc, char *argv[]) {
 
             if (sol < ans) {
                 ans = sol;
-                cerr << iter << ' ' << ans.conflict << '\n';
+                // cerr << iter << ' ' << ans.conflict << '\n';
             } else if (sol.conflict.edge - ans.conflict.edge > rt) {
                 // cerr << iter << ' ' << sol.conflict << ' ' << ans.conflict << " rt = " << rt << "
                 // accu = " << accu << '\n';
@@ -487,7 +485,7 @@ int main(int argc, char *argv[]) {
     //     csvFile << "[LogicError] ";
     // }
     csvFile << now_str() << ", " << argv[3] << ", "
-            << "SRLS, " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC << ", "
+            << "mySRLS, " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC << ", "
             << ans.conflict.edge << "\n";
     cerr << double(clock() - start) / CLOCKS_PER_SEC << '\n';
 #endif

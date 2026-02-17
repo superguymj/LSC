@@ -31,6 +31,7 @@ const string logFile = "results.csv";
 mt19937 rnd;
 
 constexpr double eps = 0.1;
+constexpr double alpha = 0.4;
 
 using TabuTab = Array3D<int>;
 
@@ -59,7 +60,7 @@ struct Conflict {
 struct Reduce {
     Conflict r;
     char row, i, j;
-    Reduce(Conflict r = Conflict(), char row = 0, char i = 0, char j = 0)
+    Reduce(Conflict r = Conflict(), char row = -1, char i = -1, char j = -1)
         : r(r), row(row), i(i), j(j) {}
 };
 
@@ -191,13 +192,13 @@ struct Sol {
         }
     }
 
-    tuple<Reduce, Reduce, Reduce> getReduce(const TabuTab &tabu, int iter) {
-        Reduce tb, ntb, rd;
-        RandSelect stb(1), sntb(1), srd(1);
+    tuple<Reduce, Reduce, Reduce, Reduce> getReduce(const TabuTab &tabu, i64 iter) {
+        Reduce tb, ntb, rd, nrd;
+        RandSelect stb(1), sntb(1), srd(1), snrd(1);
         for (int row = rows.begin(); row < n; row = rows.next(row)) {
             for (int i = bi[row].begin(); i < n; i = bi[row].next(i)) {
-                Reduce best;
-                RandSelect sbest(1);
+                Reduce best, nbest;
+                RandSelect sbest(1), snbest(1);
                 for (auto j : flexiblePos[row]) {
                     if (i == j) {
                         continue;
@@ -206,17 +207,27 @@ struct Sol {
                     int re =
                         conflictC[i][x] + conflictC[j][y] - 2 - conflictC[i][y] - conflictC[j][x];
                     int rc = den[row][i][x] + den[row][j][y] - den[row][i][y] - den[row][j][x];
-
+                    
                     Conflict r = Conflict(-re, -rc);
-                    bool TabuFlag = tabu(row, i, y) > iter && tabu(row, j, x) > iter;
+                    bool TabuFlag = tabu(row, i, y) > iter || tabu(row, j, x) > iter;
+
                     auto &R = TabuFlag ? tb : ntb;
                     auto &s = TabuFlag ? stb : sntb;
-                    if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {
-                        if (r < best.r) {
-                            sbest.reset();
+                    if (TabuFlag) {
+                        if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {
+                            if (r < best.r) {
+                                sbest.reset();
+                            }
+                            best = Reduce(r, row, i, j);
                         }
-                        best = Reduce(r, row, i, j);
-                    }
+                    } else {
+						if (r < nbest.r || (r == nbest.r && snbest.isSelect(rnd))) {
+                            if (r < nbest.r) {
+                                snbest.reset();
+                            }
+                            nbest = Reduce(r, row, i, j);
+                        }
+					}
 
                     if (r < R.r || (r == R.r && s.isSelect(rnd))) {
                         if (r < R.r) {
@@ -225,12 +236,15 @@ struct Sol {
                         R = Reduce(r, row, i, j);
                     }
                 }
-                if (srd.isSelect(rnd)) {
+                if (best.i != -1 && srd.isSelect(rnd)) {
                     rd = best;
                 }
+				if (nbest.i != -1 && snrd.isSelect(rnd)) {
+					nrd = nbest;
+				}
             }
         }
-        return {tb, ntb, rd};
+        return {tb, ntb, rd, nrd};
     }
 
     void Shuffle(int row) {
@@ -372,18 +386,20 @@ int main(int argc, char *argv[]) {
 
         int iter = 0, count = 1;
         for (; count < T && checkTime(); count++, iter++) {
-            auto [tb, ntb, rd] = sol.getReduce(tabu, iter);
-
+            auto [tb, ntb, rd, nrd] = sol.getReduce(tabu, iter);
+			if (tb.r.edge > 0) {
+				tb = rd;
+			}
+			if (ntb.r.edge > 0) {
+				ntb = nrd;
+			}
             auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
-            if (maxR.r.edge > 0) {
-                maxR = rd;
-            }
-
+			auto edge = sol.conflict.edge;
             auto Set = [&](char i, char j, char c) {
                 auto src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu(i, j, src) = iter + sol.conflict.edge + base + rnd() % P;
+                tabu(i, j, src) = iter + alpha * edge + rnd() % base + 1;
             };
 
             auto di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];

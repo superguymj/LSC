@@ -26,7 +26,7 @@ for root, _, files in os.walk('./data/'):
         # if file != "qwhdec.order33.holes381.bal.1.col":
         #     continue
         
-        if 'QWH-50-70' not in file:
+        if 'QWH-50-70-10.txt' not in file:
             continue
         
         count = 0

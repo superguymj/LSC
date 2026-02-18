@@ -28,6 +28,6 @@ RandSelect::RandSelect(int c) : count(c) {}
 
 void RandSelect::reset() { count = 2; }
 
-bool RandSelect::isSelect(std::mt19937 &rnd) { 
-    return rnd() % (count++) == 0; 
+bool RandSelect::isSelect(uint32_t (*rng)()) { 
+    return rng() % (count++) == 0; 
 }

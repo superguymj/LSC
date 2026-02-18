@@ -27,8 +27,6 @@ constexpr int fix = 1;
 
 const string logFile = "results.csv";
 
-mt19937 rnd;
-
 constexpr double eps = 0.1;
 
 using TabuTab = Array3D<i64>;
@@ -85,7 +83,7 @@ struct Sol {
         // vector<vector<char>> val(n, vector<char>(n));
         // vector<int> Row(n);
         // iota(Row.begin(), Row.end(), 0);
-        // shuffle(Row.begin(), Row.end(), rnd);
+        // shuffle(Row.begin(), Row.end(), rng32);
 
         // vector<int> ord(Row);
 
@@ -95,7 +93,7 @@ struct Sol {
         // 	for (int i = 0; i < n; i++) {
         // 		mcf.addEdge(s, i, 1, 0);
         // 		mcf.addEdge(i + n, t, 1, 0);
-        // 		shuffle(ord.begin(), ord.end(), rnd);
+        // 		shuffle(ord.begin(), ord.end(), rng32);
         // 		for (auto j : ord) {
         // 			if (fea[row][i][j]) {
         // 				mcf.addEdge(i, j + n, 1, val[i][j]);
@@ -209,14 +207,14 @@ struct Sol {
                     auto &R = TabuFlag ? tb : ntb;
                     auto &s = TabuFlag ? stb : sntb;
                     if (TabuFlag) {
-                        if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {
+                        if (r < best.r || (r == best.r && sbest.isSelect(rng32))) {
                             if (r < best.r) {
                                 sbest.reset();
                             }
                             best = Reduce(r, row, i, j);
                         }
                     } else {
-						if (r < nbest.r || (r == nbest.r && snbest.isSelect(rnd))) {
+						if (r < nbest.r || (r == nbest.r && snbest.isSelect(rng32))) {
                             if (r < nbest.r) {
                                 snbest.reset();
                             }
@@ -224,17 +222,17 @@ struct Sol {
                         }
 					}
 
-                    if (r < R.r || (r == R.r && s.isSelect(rnd))) {
+                    if (r < R.r || (r == R.r && s.isSelect(rng32))) {
                         if (r < R.r) {
                             s.reset();
                         }
                         R = Reduce(r, row, i, j);
                     }
                 }
-                if (best.i != -1 && srd.isSelect(rnd)) {
+                if (best.i != -1 && srd.isSelect(rng32)) {
                     rd = best;
                 }
-				if (nbest.i != -1 && snrd.isSelect(rnd)) {
+				if (nbest.i != -1 && snrd.isSelect(rng32)) {
 					nrd = nbest;
 				}
             }
@@ -249,7 +247,10 @@ struct Sol {
     }
 
     void Shuffle(int row) {
-        shuffle(flexibleVal[row].begin(), flexibleVal[row].end(), rnd);
+		for (int i = 1; i < (int)flexibleVal[row].size(); i++) {
+			int j = rng32() % i;
+			swap(flexibleVal[row][i], flexibleVal[row][j]);
+		}
         int k = 0;
         for (auto j : flexiblePos[row]) {
             lsc[row][j] = flexibleVal[row][k++];
@@ -261,7 +262,7 @@ struct Sol {
         // int s = 2 * n + 1, t = s + 1;
         // MaxFlow<int> f(t + 1);
         // for (int i = 0; i < n; i++) {
-        //     shuffle(ord.begin(), ord.end(), rnd);
+        //     shuffle(ord.begin(), ord.end(), rng32);
         //     f.addEdge(s, i, 1);
         //     f.addEdge(i + n, t, 1);
         //     for (auto j : ord) {
@@ -306,7 +307,7 @@ int main(int argc, char *argv[]) {
 
     auto checkTime = [&]() -> bool { return double(clock() - start) / CLOCKS_PER_SEC < T - eps; };
 
-    rnd = mt19937(seed);
+    rng_seed(seed);
 
     int n;
     cin >> n;
@@ -383,7 +384,7 @@ int main(int argc, char *argv[]) {
         for (; (iter & 1023) || checkTime(); iter++) {
             auto [tb, ntb] = sol.getReduce(tabu, iter);
 
-            auto maxR = (tb.i != -1 && tb.r < ntb.r && sol.conflict.edge + tb.r.edge < ans.conflict.edge) ? tb : ntb;
+            auto maxR = (tb.i != -1 && tb.r.edge < ntb.r.edge && sol.conflict.edge + tb.r.edge < ans.conflict.edge) ? tb : ntb;
 			if (maxR.i == -1) {
 				continue;
 			}
@@ -392,7 +393,7 @@ int main(int argc, char *argv[]) {
                 auto src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu(i, j, src) = iter + alpha * edge + rnd() % base + 1;
+                tabu(i, j, src) = iter + alpha * edge + rng32() % base + 1;
             };
 
             auto di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];

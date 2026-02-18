@@ -23,7 +23,7 @@ using u32 = unsigned int;
 using i64 = long long;
 using u64 = unsigned long long;
 
-constexpr int fix = 1E5;
+constexpr int fix = 1;
 
 const string logFile = "results.csv";
 
@@ -380,7 +380,7 @@ int main(int argc, char *argv[]) {
         int accu = 0, rt = rt0;
 
         i64 iter = 0;
-        for (; checkTime(); iter++) {
+        for (; (iter & 1023) || checkTime(); iter++) {
             auto [tb, ntb] = sol.getReduce(tabu, iter);
 
             auto maxR = (tb.i != -1 && tb.r < ntb.r && sol.conflict.edge + tb.r.edge < ans.conflict.edge) ? tb : ntb;

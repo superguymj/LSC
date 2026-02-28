@@ -2,10 +2,10 @@
 #pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
 
 #include <algorithm>
-#include <ext/pb_ds/assoc_container.hpp>
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <set>
 
 #include "Array.h"
 #include "Bitset.h"
@@ -18,7 +18,6 @@
 #define MESSAGE
 
 using namespace std;
-using namespace __gnu_pbds;
 
 using u32 = unsigned int;
 using i64 = long long;
@@ -27,8 +26,6 @@ using u64 = unsigned long long;
 constexpr int fix = 1E5;
 
 const string logFile = "results.csv";
-
-mt19937 rnd;
 
 constexpr double eps = 0.1;
 constexpr double alpha = 0.4;
@@ -83,42 +80,9 @@ struct Sol {
         for (int i = 0; i < n; i++) {
             Shuffle(i);
         }
-
-        // vector<vector<char>> val(n, vector<char>(n));
-        // vector<int> Row(n);
-        // iota(Row.begin(), Row.end(), 0);
-        // shuffle(Row.begin(), Row.end(), rnd);
-
-        // vector<int> ord(Row);
-
-        // for (auto row : Row) {
-        // 	int s = 2 * n, t = s + 1;
-        // 	MinCostFlow<int> mcf(t + 1);
-        // 	for (int i = 0; i < n; i++) {
-        // 		mcf.addEdge(s, i, 1, 0);
-        // 		mcf.addEdge(i + n, t, 1, 0);
-        // 		shuffle(ord.begin(), ord.end(), rnd);
-        // 		for (auto j : ord) {
-        // 			if (fea[row][i][j]) {
-        // 				mcf.addEdge(i, j + n, 1, val[i][j]);
-        // 			}
-        // 		}
-        // 	}
-        // 	mcf.flow(s, t);
-        // 	for (int i = 0; i < n; i++) {
-        // 		for (int j : mcf.g[i]) {
-        // 			auto [v, cap, cost] = mcf.e[j];
-        // 			if (n <= v && v < 2 * n && !cap) {
-        // 				lsc[row][i] = v - n;
-        // 				val[i][v - n]++;
-        // 				break;
-        // 			}
-        // 		}
-        // 	}
-        // }
     }
 
-    void init() {
+        void init() {
         conflict = Conflict(0, 0);
         bi.assign(n, Bitset(n));
         rows.clear();
@@ -137,9 +101,6 @@ struct Sol {
                             bi[conflictR[j][x]].set(j);
                         }
                     }
-                }
-                if (fixed[i][j] == -1 && fea[i][j][x] == false) {
-                    bi[i].set(j);
                 }
                 conflict.edge += (conflictC[j][x]++);
                 conflictR[j][x] ^= i;
@@ -162,7 +123,7 @@ struct Sol {
 
         if (conflictC[j][src] == 1) {
             auto row = conflictR[j][src];
-            if (fixed[row][j] == -1 && fea[row][j][lsc[row][j]]) {
+            if (fixed[row][j] == -1) {
                 bi[row].reset(j);
                 if (!bi[row].any()) {
                     rows.reset(row);
@@ -181,7 +142,7 @@ struct Sol {
         conflictC[j][c]++;
         conflictR[j][c] ^= i;
 
-        if (conflictC[j][c] > 1 || !fea[i][j][c]) {
+        if (conflictC[j][c] > 1) {
             bi[i].set(j);
             rows.set(i);
         } else {
@@ -192,9 +153,9 @@ struct Sol {
         }
     }
 
-    tuple<Reduce, Reduce, Reduce, Reduce> getReduce(const TabuTab &tabu, i64 iter) {
+    pair<Reduce, Reduce> getReduce(const TabuTab &tabu, i64 iter) {
         Reduce tb, ntb, rd, nrd;
-        RandSelect stb(1), sntb(1), srd(1), snrd(1);
+        RandSelect stb(1), sntb(1), srd(2), snrd(2);
         for (int row = rows.begin(); row < n; row = rows.next(row)) {
             for (int i = bi[row].begin(); i < n; i = bi[row].next(i)) {
                 Reduce best, nbest;
@@ -214,14 +175,14 @@ struct Sol {
                     auto &R = TabuFlag ? tb : ntb;
                     auto &s = TabuFlag ? stb : sntb;
                     if (TabuFlag) {
-                        if (r < best.r || (r == best.r && sbest.isSelect(rnd))) {
+                        if (r < best.r || (r == best.r && sbest.isSelect(rng32))) {
                             if (r < best.r) {
                                 sbest.reset();
                             }
                             best = Reduce(r, row, i, j);
                         }
                     } else {
-						if (r < nbest.r || (r == nbest.r && snbest.isSelect(rnd))) {
+						if (r < nbest.r || (r == nbest.r && snbest.isSelect(rng32))) {
                             if (r < nbest.r) {
                                 snbest.reset();
                             }
@@ -229,26 +190,32 @@ struct Sol {
                         }
 					}
 
-                    if (r < R.r || (r == R.r && s.isSelect(rnd))) {
+                    if (r < R.r || (r == R.r && s.isSelect(rng32))) {
                         if (r < R.r) {
                             s.reset();
                         }
                         R = Reduce(r, row, i, j);
                     }
                 }
-                if (best.i != -1 && srd.isSelect(rnd)) {
+                if (best.row != -1 && srd.isSelect(rng32)) {
                     rd = best;
                 }
-				if (nbest.i != -1 && snrd.isSelect(rnd)) {
+				if (nbest.row != -1 && snrd.isSelect(rng32)) {
 					nrd = nbest;
 				}
             }
         }
-        return {tb, ntb, rd, nrd};
+		if (tb.r.edge > 0 && rd.row != -1) {
+			tb = rd;
+		}
+		if (ntb.r.edge > 0 && nrd.row != -1) {
+			ntb = nrd;
+		}
+        return {tb, ntb};
     }
 
     void Shuffle(int row) {
-        // shuffle(flexibleVal[row].begin(), flexibleVal[row].end(), rnd);
+        // shuffle(flexibleVal[row].begin(), flexibleVal[row].end(), rng32);
         // int k = 0;
         // for (auto j : flexiblePos[row]) {
         //     lsc[row][j] = flexibleVal[row][k++];
@@ -260,7 +227,7 @@ struct Sol {
         int s = 2 * n + 1, t = s + 1;
         MaxFlow<int> f(t + 1);
         for (int i = 0; i < n; i++) {
-            shuffle(ord.begin(), ord.end(), rnd);
+            shuffle(ord.begin(), ord.end(), rng32);
             f.addEdge(s, i, 1);
             f.addEdge(i + n, t, 1);
             for (auto j : ord) {
@@ -306,9 +273,9 @@ int main(int argc, char *argv[]) {
     const u32 seed = stoi(argv[2]);
     const clock_t start = clock();
 
-    auto checkTime = [&]() -> bool { return double(clock() - start) / CLOCKS_PER_SEC < T - eps; };
+    rng_seed(seed);
 
-    rnd = mt19937(seed);
+    auto checkTime = [&]() -> bool { return double(clock() - start) / CLOCKS_PER_SEC < T - eps; };
 
     int n;
     cin >> n;
@@ -371,7 +338,7 @@ int main(int argc, char *argv[]) {
 
     auto den = Sol::den;
 
-    constexpr int genT = 1500;
+    constexpr int genT = 1000;
 
     set<vector<vector<char>>> st;
 
@@ -379,27 +346,24 @@ int main(int argc, char *argv[]) {
         sol.init();
         // cerr << "Tabu start " << sol.conflict << '\n';
         auto best = sol;
-        const int P = rnd() % 4 + 1;
-        constexpr int base = 10;
+        constexpr int base = 10, rt = 0;
 
         TabuTab tabu(n);
 
         int iter = 0, count = 1;
-        for (; count < T && checkTime(); count++, iter++) {
-            auto [tb, ntb, rd, nrd] = sol.getReduce(tabu, iter);
-			if (tb.r.edge > 0) {
-				tb = rd;
+        for (; count < T && checkTime(); iter++) {
+            auto [tb, ntb] = sol.getReduce(tabu, iter);
+            auto maxR = (tb.i != -1 && tb.r.edge < ntb.r.edge && sol.conflict.edge + tb.r.edge < best.conflict.edge) ? tb : ntb;
+			if (maxR.row == -1) {
+				continue;
 			}
-			if (ntb.r.edge > 0) {
-				ntb = nrd;
-			}
-            auto maxR = (tb.r < ntb.r && sol.conflict + tb.r < best.conflict) ? tb : ntb;
+
 			auto edge = sol.conflict.edge;
             auto Set = [&](char i, char j, char c) {
                 auto src = sol.lsc[i][j];
                 sol.Set(i, j, c);
 
-                tabu(i, j, src) = iter + alpha * edge + rnd() % base + 1;
+                tabu(i, j, src) = iter + alpha * edge + rng32(base) + 1;
             };
 
             auto di = sol.lsc[maxR.row][maxR.j], dj = sol.lsc[maxR.row][maxR.i];
@@ -410,12 +374,11 @@ int main(int argc, char *argv[]) {
             sol.conflict = sol.conflict + maxR.r;
 
             if (sol < best) {
-                if (count > 100) {
-                    // cerr << "Tabu: " << count << '\n';
-                }
                 count = 1;
                 best = sol;
             }
+			count++;
+			
 
             if (!best.conflict) {
                 break;
@@ -495,17 +458,6 @@ int main(int argc, char *argv[]) {
         return true;
     };
 
-    // {
-    //     ofstream fout("data.txt");
-    //     for (int i = 0; i < n; i++) {
-    //         for (int j = 0; j < n; j++) {
-    //             for (int k = 0; k < n; k++) {
-    //                 fout << Sol::den[i][j][k] << " \n"[k == n - 1];
-    //             }
-    //         }
-    //     }
-    // }
-
 #if defined(MESSAGE)
     ans.init();
     cerr << ans.conflict << '\n';
@@ -516,7 +468,7 @@ int main(int argc, char *argv[]) {
     //     csvFile << "[LogicError] ";
     // }
     csvFile << now_str() << ", " << argv[3] << ", "
-            << "TABU(flow-400), " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC
+            << "TABU, " << seed << ", " << double(clock() - start) / CLOCKS_PER_SEC
             << ", " << ans.conflict.edge << "\n";
     cerr << double(clock() - start) / CLOCKS_PER_SEC << '\n';
 #endif

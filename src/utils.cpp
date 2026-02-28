@@ -1,5 +1,4 @@
 #include "utils.h"
-#include <random>
 #include <string>
 #include <chrono>
 #include <ctime>
@@ -28,6 +27,6 @@ RandSelect::RandSelect(int c) : count(c) {}
 
 void RandSelect::reset() { count = 2; }
 
-bool RandSelect::isSelect(uint32_t (*rng)()) { 
-    return rng() % (count++) == 0; 
+bool RandSelect::isSelect(uint32_t (*rng)(uint32_t mod)) { 
+    return rng((count++)) == 0; 
 }

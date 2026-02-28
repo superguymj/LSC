@@ -403,7 +403,7 @@ int main(int argc, char *argv[]) {
 
             sol.conflict = sol.conflict + maxR.r;
 
-            if (sol < ans) {
+            if (sol < ans || sol == ans) {
                 ans = sol;
                 // cerr << iter << ' ' << ans.conflict << '\n';
             } else if (sol.conflict.edge - ans.conflict.edge > rt) {
